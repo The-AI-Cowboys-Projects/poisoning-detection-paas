@@ -37,7 +37,7 @@ const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const IS_SUPABASE = !!SUPABASE_URL && !!SUPABASE_KEY
 const IS_MOCK = !process.env.NEXT_PUBLIC_API_URL && !IS_SUPABASE
 
-// ─── Supabase edge function caller ────────────────────────────────────────────
+// ─── Supabase edge function caller (POST operations only) ─────────────────────
 
 async function callEdgeFunction<T>(functionName: string, body?: unknown): Promise<T> {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
@@ -70,6 +70,29 @@ async function queryRest<T>(table: string, params: string = ''): Promise<T> {
     next: { revalidate: 60 },
   })
   if (!res.ok) throw new Error(`Query ${table} failed: ${res.status}`)
+  return res.json()
+}
+
+// ─── Supabase RPC call (SECURITY DEFINER functions bypass RLS) ────────────────
+
+const DEMO_TENANT = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d'
+
+async function callRpc<T>(functionName: string, params: Record<string, unknown> = {}): Promise<T> {
+  const url = `${SUPABASE_URL}/rest/v1/rpc/${functionName}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_KEY!,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+    },
+    body: JSON.stringify(params),
+    next: { revalidate: 60 },
+  })
+  if (!res.ok) {
+    const err = await res.text().catch(() => `RPC ${functionName} failed: ${res.status}`)
+    throw new Error(typeof err === 'string' ? err : `RPC ${functionName} failed: ${res.status}`)
+  }
   return res.json()
 }
 
@@ -178,8 +201,9 @@ const ENGINE_TO_THREAT: Record<string, string> = {
 
 export async function fetchMetrics(): Promise<DashboardMetrics> {
   if (IS_SUPABASE) {
-    const data = await callEdgeFunction<Record<string, any>>('dashboard-summary')
-    const s = data.summary ?? {}
+    const s = await callRpc<Record<string, any>>('get_dashboard_summary', {
+      p_tenant_id: DEMO_TENANT,
+    })
     return {
       totalScans: Number(s.total_scans ?? 0),
       totalScansChange: Number(s.total_scans_change ?? 0),
@@ -208,9 +232,11 @@ export async function fetchMetrics(): Promise<DashboardMetrics> {
 
 export async function fetchTimeSeries(days = 14): Promise<TimeSeriesPoint[]> {
   if (IS_SUPABASE) {
-    const data = await callEdgeFunction<Record<string, any>>('dashboard-summary')
-    const timeline: any[] = data.timeline ?? []
-    return timeline.map((t) => ({
+    const timeline = await callRpc<any[]>('get_dashboard_timeline', {
+      p_tenant_id: DEMO_TENANT,
+      p_days: days,
+    })
+    return (timeline ?? []).map((t: any) => ({
       timestamp: t.date ? new Date(t.date).toISOString() : t.timestamp,
       scans: Number(t.scans ?? 0),
       threats: Number(t.threats ?? 0),
@@ -231,9 +257,10 @@ export async function fetchTimeSeries(days = 14): Promise<TimeSeriesPoint[]> {
 
 export async function fetchThreatBreakdown(): Promise<ThreatBreakdown[]> {
   if (IS_SUPABASE) {
-    const data = await callEdgeFunction<Record<string, any>>('dashboard-summary')
-    const breakdown: any[] = data.threat_breakdown ?? []
-    return breakdown.map((b) => ({
+    const breakdown = await callRpc<any[]>('get_threat_breakdown', {
+      p_tenant_id: DEMO_TENANT,
+    })
+    return (breakdown ?? []).map((b: any) => ({
       type: (ENGINE_TO_THREAT[b.type] ?? b.type) as ThreatBreakdown['type'],
       label: b.label ?? b.type,
       count: Number(b.count ?? 0),
@@ -254,9 +281,11 @@ export async function fetchThreatBreakdown(): Promise<ThreatBreakdown[]> {
 
 export async function fetchRecentAlerts(limit = 10): Promise<RecentAlert[]> {
   if (IS_SUPABASE) {
-    const data = await callEdgeFunction<Record<string, any>>('dashboard-summary')
-    const alerts: any[] = data.recent_alerts ?? []
-    return alerts.slice(0, limit).map((a) => ({
+    const alerts = await callRpc<any[]>('get_recent_alerts', {
+      p_tenant_id: DEMO_TENANT,
+      p_limit: limit,
+    })
+    return (alerts ?? []).map((a: any) => ({
       id: a.id,
       severity: mapSeverity(a.severity),
       type: (ENGINE_TO_THREAT[a.type] ?? a.type) as RecentAlert['type'],
