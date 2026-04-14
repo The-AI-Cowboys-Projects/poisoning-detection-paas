@@ -24,6 +24,7 @@ import {
   Bell,
   Settings,
   LogOut,
+  FlaskConical,
 } from 'lucide-react'
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
@@ -43,6 +44,7 @@ const PRIMARY_NAV: NavItem[] = [
   { label: 'Provenance',    href: '/provenance', icon: GitBranch },
   { label: 'Telemetry',     href: '/telemetry',  icon: Activity },
   { label: 'Poison Generator', href: '/generator', icon: Skull },
+  { label: 'Model Lab', href: '/model-lab', icon: FlaskConical },
 ]
 
 const SECONDARY_NAV: NavItem[] = [
