@@ -12,6 +12,7 @@ A production-grade, multi-tenant SaaS platform for detecting data poisoning atta
 - [Architecture](#architecture)
 - [Detection Engines](#detection-engines)
 - [Red Team Poison Generator](#red-team-poison-generator)
+- [Model Lab](#model-lab)
 - [Tech Stack](#tech-stack)
 - [Frontend Pages](#frontend-pages)
 - [API Reference](#api-reference)
@@ -37,7 +38,8 @@ LLM data poisoning is the emerging attack surface where adversaries inject malic
 | **Provenance Tracker** | Training lineage | DAG contamination propagation, recursive upstream traversal |
 | **Telemetry Simulator** | Agent behavior | Synthetic attack traces, anomaly scoring across 8 attack scenarios |
 | **Threat Aggregator** | Cross-engine | Weighted fusion scoring with configurable engine importance |
-| **Poison Generator** | Red team | AutoBackdoor, DDIPE, VIA simulation, ASCII smuggling, adversarial decoding |
+| **Poison Generator** | Red team | 19 evasion techniques: AutoBackdoor, DDIPE, VIA, ASCII smuggling, adversarial decoding, steganography, judge poisoning, and more |
+| **Model Lab** | Local LLM | LLM-as-a-Judge evaluation, detection agents, self-evolution loops, benchmark suites via Ollama/vLLM/llama.cpp |
 
 ---
 
@@ -56,6 +58,11 @@ LLM data poisoning is the emerging attack surface where adversaries inject malic
                           │  ┌────┴─────┐ ┌────┴─────┐ ┌─────┴────────┐  │
                           │  │  Tools   │ │Provenance│ │  Telemetry   │  │
                           │  │  Audit   │ │   DAG    │ │  Simulator   │  │
+                          │  └────┬─────┘ └────┬─────┘ └──────┬───────┘  │
+                          │       │            │              │           │
+                          │  ┌────┴─────┐ ┌────┴─────┐ ┌─────┴────────┐  │
+                          │  │Generator │ │Model Lab │ │Alerts/Settings│ │
+                          │  │ Red Team │ │Local LLM │ │  Management  │  │
                           │  └────┬─────┘ └────┬─────┘ └──────┬───────┘  │
                           │       │            │              │           │
                           │       └────────────┼──────────────┘           │
@@ -171,7 +178,7 @@ Unified cross-engine threat scoring:
 
 ## Red Team Poison Generator
 
-An autonomous adversarial engine for generating state-of-the-art synthetic poisoning data to test and validate LLM/SLM resilience. This internal red team module produces sophisticated sample data across 8 attack categories:
+An autonomous adversarial engine for generating state-of-the-art synthetic poisoning data to test and validate LLM/SLM resilience. This internal red team module produces sophisticated sample data across 8 attack categories with 19 evasion techniques:
 
 | Category | Technique | Description |
 |----------|-----------|-------------|
@@ -184,15 +191,67 @@ An autonomous adversarial engine for generating state-of-the-art synthetic poiso
 | **Data Exfiltration** | Role-play, encoding tricks | Inputs that cause models to leak system prompts, training data, or internal configurations |
 | **Alignment Subversion** | ASCII smuggling, Unicode tags | Subtle samples that erode safety guardrails using invisible Unicode characters and boundary erosion |
 
+### 19 Evasion Techniques
+
+| # | Technique | Description |
+|---|-----------|-------------|
+| 1 | Zero-width ASCII smuggling | Unicode Tags U+E0001-U+E007F invisible encoding |
+| 2 | Linguistic steganography | Synonym-bin bit-level encoding (16 synonym pairs) |
+| 3 | Multi-turn decomposition | 3-4 turn conversations with embedded adversarial goals |
+| 4 | TIP tree injection | MCP tool descriptions with hidden objectives |
+| 5 | MBTI fragmentation | Backdoor fragments scattered across anchor tokens |
+| 6 | Homoglyph injection | Cyrillic/Greek character substitution |
+| 7 | Adversarial decoding | Query-term saturated text for cosine-maximized retrieval |
+| 8 | Judge poisoning | Evaluator training data with misclassification backdoors |
+| 9 | Clean-label overwrite | Same-type entity substitution (medications, protocols, thresholds) |
+| 10 | Hearsay framing | Untraceable attribution templates (12 framing patterns) |
+| 11 | Emoji token segmentation | Tokenizer bias exploitation via emoji insertion |
+| 12 | MM-MEPA multimodal | Metadata-only poisoning in EXIF/XMP/IPTC fields |
+| 13 | VIA propagation | Self-replicating poison for synthetic data pipelines |
+| 14 | DDIPE wrapper | Legitimate document shells with hidden payloads |
+| 15 | Context window overflow | Attention window flooding with filler tokens |
+| 16 | Instruction hierarchy exploit | System/user/tool priority manipulation |
+| 17 | Semantic sleeper agent | Domain-specific semantic trigger activation |
+| 18 | Gradient-aligned drift | Natural gradient direction mimicry |
+| 19 | Metadata stripping | Removes all detection-revealing fields for structural indistinguishability |
+
 ### Generator Features
 
 - **4 subtlety levels:** Obvious (easy to detect) → Moderate → Subtle → Stealth (near-undetectable)
 - **7 target model types:** LLM general/chat/instruct, SLM edge/embedded, code generation, multimodal
+- **19 evasion techniques:** Configurable per-sample evasion method selection
 - **Clean sample mixing:** 0-80% clean decoy samples for realistic poisoned dataset composition
 - **Deterministic PRNG:** Seeded generation for reproducible experiments
 - **Detection difficulty scoring:** Per-sample calibrated difficulty (0 = trivial, 1 = undetectable)
+- **Metadata stripping:** One-click removal of all detection-revealing fields for export
 - **Export formats:** JSONL, JSON, CSV with one-click download
 - **Domain targeting:** Optional domain context (finance, healthcare, legal, etc.)
+
+---
+
+## Model Lab
+
+Local LLM integration for detection hardening, evaluation, and self-improvement. Connect local models (Ollama, llama.cpp, vLLM, LM Studio, or any OpenAI-compatible endpoint) to power detection agents and iteratively harden defenses.
+
+### Lab Modes
+
+| Mode | Description |
+|------|-------------|
+| **LLM-as-a-Judge** | Evaluate poison samples against a local model — per-sample verdicts (safe/suspicious/poisoned) with confidence scores, reasoning, and latency tracking |
+| **Detection Agent** | Autonomous agent scanning text for poisoning indicators — 10+ pattern matchers (zero-width, prompt injection, homoglyphs, base64, dangerous configs, etc.) with LLM-enhanced analysis |
+| **Self-Evolution Loop** | Iterative generate→detect→harden→repeat cycle with configurable rounds (1-20), detection rate tracking, and heuristic updates per round |
+| **Benchmark Suite** | 500-sample standardized test with accuracy, precision, recall, F1 metrics, confusion matrix, and latency tracking |
+
+### Supported Providers
+
+- **Ollama** — Local model serving (default `http://localhost:11434`)
+- **llama.cpp** — GGUF model inference (`http://localhost:8080`)
+- **vLLM** — High-throughput serving (`http://localhost:8000`)
+- **LM Studio** — Desktop model runner (`http://localhost:1234`)
+- **OpenAI-compatible** — Any endpoint implementing the `/v1/chat/completions` API
+- **Custom** — Arbitrary endpoint configuration
+
+Compatible with MiniMax M2.7, Gemma, Llama, Mistral, Qwen, and any GGUF model.
 
 ---
 
@@ -226,8 +285,11 @@ An autonomous adversarial engine for generating state-of-the-art synthetic poiso
 | `/tools` | MCP Auditor | Tool audit cards with findings, known threat pattern database |
 | `/provenance` | Provenance Tracker | Interactive DAG visualization, contamination panel, depth indicator, dataset registration form |
 | `/telemetry` | Telemetry | 8-scenario simulator panel, attack trace visualization, anomaly detection |
-| `/generator` | Poison Generator | Red team synthetic data generation — 8 attack categories, 4 subtlety levels, JSONL/JSON/CSV export |
-| `/login` | Authentication | Supabase Auth login form |
+| `/generator` | Poison Generator | Red team data generation — 8 attack categories, 19 evasion techniques, metadata stripping, JSONL/JSON/CSV export |
+| `/model-lab` | Model Lab | Local LLM integration — 4 lab modes (Judge, Detection Agent, Self-Evolution, Benchmark), 6 provider types |
+| `/alerts` | Alerts | Full alert management — severity/status filtering, inline status actions, detail drill-down modal |
+| `/settings` | Settings | 5-tab config panel — General, API Keys, Notifications, Thresholds, System Health |
+| `/login` | Authentication | Supabase Auth login (password + magic link) |
 
 ---
 
@@ -253,14 +315,23 @@ POST /rest/v1/rpc/get_poisoning_timeline     { p_tenant_id, p_days }
 ### Table Queries (PostgREST)
 
 ```
-GET /rest/v1/vector_analyses?tenant_id=eq.{id}&select=*&order=created_at.desc
-GET /rest/v1/rag_scans?tenant_id=eq.{id}&select=*&order=created_at.desc
-GET /rest/v1/mcp_audits?tenant_id=eq.{id}&select=*&order=created_at.desc
-GET /rest/v1/provenance_nodes?tenant_id=eq.{id}&select=*
-GET /rest/v1/provenance_edges?tenant_id=eq.{id}&select=*
-GET /rest/v1/alerts?tenant_id=eq.{id}&order=created_at.desc
-GET /rest/v1/threat_reports?tenant_id=eq.{id}&order=created_at.desc&limit=1
-GET /rest/v1/telemetry_simulations?tenant_id=eq.{id}&order=created_at.desc
+GET   /rest/v1/vector_analyses?tenant_id=eq.{id}&select=*&order=created_at.desc
+GET   /rest/v1/rag_scans?tenant_id=eq.{id}&select=*&order=created_at.desc
+GET   /rest/v1/mcp_audits?tenant_id=eq.{id}&select=*&order=created_at.desc
+GET   /rest/v1/provenance_nodes?tenant_id=eq.{id}&select=*
+GET   /rest/v1/provenance_edges?tenant_id=eq.{id}&select=*
+GET   /rest/v1/alerts?tenant_id=eq.{id}&order=created_at.desc
+GET   /rest/v1/threat_reports?tenant_id=eq.{id}&order=created_at.desc&limit=1
+GET   /rest/v1/telemetry_simulations?tenant_id=eq.{id}&order=created_at.desc
+PATCH /rest/v1/threat_items?id=eq.{id}                         — Update alert status
+PATCH /rest/v1/tenants?id=eq.{id}                              — Update tenant settings
+PATCH /rest/v1/api_keys?id=eq.{id}                             — Revoke API key
+```
+
+### Settings & Management RPCs
+
+```
+POST /rest/v1/rpc/create_api_key          { p_tenant_id, p_name }
 ```
 
 ### Edge Functions
@@ -480,15 +551,18 @@ supabase db push
 poisoning-detection-paas/
 ├── frontend/                    # Next.js 14 dashboard
 │   ├── src/
-│   │   ├── app/                 # App Router pages
+│   │   ├── app/                 # App Router pages (12 routes)
 │   │   │   ├── page.tsx         # Dashboard (KPIs, charts, alerts)
 │   │   │   ├── vectors/         # Vector integrity analysis
 │   │   │   ├── rag/             # RAG poisoning detection
 │   │   │   ├── tools/           # MCP tool auditor
 │   │   │   ├── provenance/      # Lineage DAG + contamination
 │   │   │   ├── telemetry/       # Telemetry simulator
-│   │   │   ├── generator/       # Red team synthetic poison generator
-│   │   │   ├── login/           # Authentication
+│   │   │   ├── generator/       # Red team poison generator (19 evasion techniques)
+│   │   │   ├── model-lab/       # Local LLM integration (Judge, Agent, Evolution, Benchmark)
+│   │   │   ├── alerts/          # Alert management (filter, status, drill-down)
+│   │   │   ├── settings/        # Platform settings (5 tabs)
+│   │   │   ├── login/           # Authentication (password + magic link)
 │   │   │   └── auth/callback/   # OAuth callback
 │   │   ├── components/          # Shared UI (Sidebar, MetricCard, etc.)
 │   │   └── lib/                 # API client, Supabase clients, types
