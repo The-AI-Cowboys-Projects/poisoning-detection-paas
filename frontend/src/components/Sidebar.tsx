@@ -25,6 +25,11 @@ import {
   Settings,
   LogOut,
   FlaskConical,
+  Dna,
+  Plug,
+  Network,
+  ShieldCheck,
+  Fingerprint,
 } from 'lucide-react'
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
@@ -45,6 +50,11 @@ const PRIMARY_NAV: NavItem[] = [
   { label: 'Telemetry',     href: '/telemetry',  icon: Activity },
   { label: 'Poison Generator', href: '/generator', icon: Skull },
   { label: 'Model Lab', href: '/model-lab', icon: FlaskConical },
+  { label: 'Self-Evolution', href: '/evolution', icon: Dna },
+  { label: 'Live Connectors', href: '/connectors', icon: Plug },
+  { label: 'Correlation', href: '/correlation', icon: Network },
+  { label: 'Remediation', href: '/remediation', icon: ShieldCheck },
+  { label: 'Crypto Proofs', href: '/proofs', icon: Fingerprint },
 ]
 
 const SECONDARY_NAV: NavItem[] = [

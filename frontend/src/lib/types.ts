@@ -330,6 +330,177 @@ export interface ApiError {
 
 export type ApiResult<T> = ApiResponse<T> | ApiError
 
+// ─── Self-Evolution Loop (Gap 1) ─────────────────────────────────────────────
+
+export interface EvolutionRound {
+  round: number
+  timestamp: string
+  attackSamples: number
+  detectedCount: number
+  missedCount: number
+  detectionRate: number          // 0–1
+  falsePositiveRate: number      // 0–1
+  hardeningApplied: string[]     // list of mutations applied
+  convergenceDelta: number       // change vs previous round
+}
+
+export interface EvolutionSession {
+  id: string
+  status: 'running' | 'converged' | 'stopped' | 'failed'
+  rounds: EvolutionRound[]
+  startedAt: string
+  finishedAt: string | null
+  finalDetectionRate: number
+  convergenceThreshold: number   // default 0.01
+  maxRounds: number
+}
+
+// ─── Live System Integration (Gap 2) ────────────────────────────────────────
+
+export type ConnectorType = 'vector_store' | 'mcp_server' | 'rag_pipeline'
+
+export type ConnectorStatus = 'connected' | 'disconnected' | 'error' | 'scanning'
+
+export interface LiveConnector {
+  id: string
+  type: ConnectorType
+  name: string
+  endpoint: string
+  status: ConnectorStatus
+  lastChecked: string | null
+  lastScanResult: {
+    riskScore: number
+    findings: number
+    verdict: VerdictLabel
+  } | null
+  config: Record<string, unknown>
+}
+
+export interface MCPIntrospection {
+  serverId: string
+  serverName: string
+  tools: Array<{
+    name: string
+    description: string
+    schemaHash: string
+    paramCount: number
+    riskFlags: string[]
+  }>
+  lastDiff: {
+    added: string[]
+    removed: string[]
+    modified: string[]
+    diffAt: string
+  } | null
+}
+
+// ─── Cross-Engine Attack Correlation (Gap 3) ─────────────────────────────────
+
+export interface CorrelatedEvent {
+  id: string
+  engine: string                 // which detection engine
+  type: ThreatType
+  severity: ThreatSeverity
+  timestamp: string
+  entityId: string               // document/tool/model ID
+  riskScore: number
+  details: string
+}
+
+export interface AttackCluster {
+  id: string
+  events: CorrelatedEvent[]
+  killChainStage: 'reconnaissance' | 'initial_access' | 'persistence' | 'exfiltration' | 'impact'
+  confidence: number             // 0–1
+  firstSeen: string
+  lastSeen: string
+  entityIds: string[]            // unique entities involved
+  timeWindowMinutes: number
+}
+
+export interface CorrelationResult {
+  clusters: AttackCluster[]
+  totalEvents: number
+  correlatedEvents: number
+  uncorrelatedEvents: number
+  killChainCoverage: Record<string, number>  // stage → event count
+  timeline: CorrelatedEvent[]
+}
+
+// ─── Automated Remediation (Gap 4) ──────────────────────────────────────────
+
+export type RemediationAction = 'quarantine' | 'block' | 'disable' | 'pause' | 'alert_only'
+
+export type RemediationMode = 'auto' | 'manual' | 'confirm'
+
+export interface RemediationRule {
+  id: string
+  engine: string
+  severity: ThreatSeverity
+  action: RemediationAction
+  mode: RemediationMode
+  enabled: boolean
+  createdAt: string
+}
+
+export interface RemediationEvent {
+  id: string
+  ruleId: string
+  alertId: string
+  action: RemediationAction
+  engine: string
+  entityId: string
+  status: 'pending' | 'executed' | 'rolled_back' | 'failed'
+  executedAt: string
+  rolledBackAt: string | null
+  details: string
+}
+
+export interface RemediationConfig {
+  rules: RemediationRule[]
+  globalMode: RemediationMode
+  auditLog: RemediationEvent[]
+}
+
+// ─── Cryptographic Proof + Detection Bounds (Gap 5) ──────────────────────────
+
+export interface ScanProof {
+  scanId: string
+  timestamp: string
+  contentHash: string            // SHA-256 of input
+  resultHash: string             // SHA-256 of scan result
+  previousProofHash: string | null  // chain link
+  chainHash: string              // SHA-256(previousProofHash + resultHash)
+  engine: string
+  verdict: VerdictLabel
+}
+
+export interface ProofChain {
+  chainId: string
+  proofs: ScanProof[]
+  isValid: boolean               // full chain verification result
+  length: number
+  firstProof: string             // timestamp
+  lastProof: string
+}
+
+export interface DetectionBound {
+  technique: string              // attack technique name
+  engineDetectionRates: Record<string, number>  // engine → detection rate 0–1
+  combinedDetectionRate: number  // fused rate
+  falsePositiveRate: number
+  sampleSize: number
+  lastUpdated: string
+}
+
+export interface CoverageMatrix {
+  techniques: string[]
+  engines: string[]
+  matrix: number[][]             // [technique][engine] = detection rate
+  overallCoverage: number        // weighted average
+  gaps: Array<{ technique: string; bestRate: number }>  // techniques with <0.5 detection
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export interface JWTPayload {
