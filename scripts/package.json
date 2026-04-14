@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "scripts": {
+    "seed": "tsx seed-database.ts",
+    "seed:clean": "tsx seed-database.ts --clean"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.0",
+    "tsx": "^4.19.0"
+  }
+}

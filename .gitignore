@@ -35,6 +35,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!frontend/src/lib/
 lib64/
 parts/
 sdist/
@@ -342,3 +343,4 @@ benchmarks/output/
 
 # Coverage badges
 coverage.svg
+.vercel
