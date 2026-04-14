@@ -212,9 +212,10 @@ export default function GeneratorPage() {
       <section aria-label="Attack category reference">
         <p className="section-heading">Attack Categories</p>
         <p className="text-xs text-slate-500 -mt-3 mb-4">
-          Select a category below to generate synthetic poisoning samples using state-of-the-art
-          techniques including AutoBackdoor pipelines, adversarial decoding, DDIPE, VIA simulation,
-          and ASCII smuggling.
+          Generate synthetic poisoning samples using state-of-the-art evasion techniques:
+          zero-width ASCII smuggling, linguistic steganography (TrojanStego), multi-turn
+          psychological decomposition, tree-structured injection (TIP), MBTI fragmentation,
+          adversarial decoding optimization, homoglyph substitution, and DDIPE/VIA simulation.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {CATEGORIES.map(cat => (
