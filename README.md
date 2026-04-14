@@ -1,476 +1,518 @@
 # LLM Data Poisoning Detection PaaS
 
-A multi-tenant, production-grade platform for detecting adversarial data poisoning attacks across the full LLM supply chain: training datasets, RAG retrieval corpora, fine-tuning pipelines, and MCP tool registries.
+A production-grade, multi-tenant SaaS platform for detecting data poisoning attacks across the entire LLM supply chain — from training data and vector stores to RAG pipelines, MCP tool registries, and live agent telemetry.
+
+**Live:** [poisoning-detection-paas.vercel.app](https://poisoning-detection-paas.vercel.app)
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Detection Engines](#detection-engines)
-4. [Quick Start](#quick-start)
-5. [API Documentation](#api-documentation)
-6. [Configuration Reference](#configuration-reference)
-7. [Development Setup](#development-setup)
-8. [Testing](#testing)
-9. [Deployment](#deployment)
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Detection Engines](#detection-engines)
+- [Tech Stack](#tech-stack)
+- [Frontend Pages](#frontend-pages)
+- [API Reference](#api-reference)
+- [Database Schema](#database-schema)
+- [Edge Functions](#edge-functions)
+- [Infrastructure](#infrastructure)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Deployment](#deployment)
+- [Project Structure](#project-structure)
 
 ---
 
 ## Overview
 
-### Problem
+LLM data poisoning is the emerging attack surface where adversaries inject malicious data into training sets, retrieval corpora, tool schemas, or agent memory to manipulate model behavior. This platform provides six specialized detection engines that operate across the full ML pipeline:
 
-Modern LLM systems are composed of many untrusted inputs: public training corpora, third-party RAG documents, open-source model weights, and externally-defined MCP tool schemas. Any of these surfaces can be poisoned to:
-
-- Induce targeted misclassifications (backdoor triggers)
-- Exfiltrate context via MCP tool descriptions containing hidden instructions
-- Bias model outputs toward attacker-controlled content
-- Contaminate fine-tuning data through supply-chain compromise
-
-### Solution
-
-This PaaS exposes six detection engines behind a unified REST API, protected by multi-tenant API key authentication and per-tier rate limiting:
-
-| Engine | Attack Surface | Method |
-|--------|---------------|--------|
-| Vector Integrity Analyzer | Embedding stores, RAG indices | Cosine-dispersion outlier detection |
-| RAG Poisoning Detector | Retrieval corpora | Perplexity, entropy, homoglyph, hidden-instruction signals |
-| MCP Tool Auditor | Tool schema registries | Static analysis for injection patterns, base64 payloads |
-| Provenance Tracker | Dataset lineage graphs | Neo4j contamination propagation tracing |
-| Telemetry Simulator | Agent telemetry streams | Synthetic attack generation, behavioral anomaly detection, execution tracing |
-| Threat Aggregator | All surfaces | Weighted fusion into a single prioritised threat report |
+| Engine | Attack Surface | Detection Method |
+|--------|---------------|------------------|
+| **Vector Analyzer** | Embedding stores | Cosine dispersion, centroid drift, z-score outliers, split-view detection |
+| **RAG Detector** | Retrieval corpora | Shannon entropy, bigram perplexity, homoglyph detection, hidden instruction matching |
+| **MCP Auditor** | Tool registries | Invisible character detection, base64 payload scanning, schema violation analysis |
+| **Provenance Tracker** | Training lineage | DAG contamination propagation, recursive upstream traversal |
+| **Telemetry Simulator** | Agent behavior | Synthetic attack traces, anomaly scoring across 8 attack scenarios |
+| **Threat Aggregator** | Cross-engine | Weighted fusion scoring with configurable engine importance |
 
 ---
 
 ## Architecture
 
 ```
-                          +------------------+
-                          |   Browser / CLI  |
-                          +--------+---------+
-                                   |
-                          +--------v---------+
-                          |  Next.js 14      |  port 3000
-                          |  AI-SPM Dashboard|
-                          +--------+---------+
-                                   | REST
-                          +--------v---------+
-                          |  FastAPI Backend |  port 8000
-                          |                  |
-                          |  +------------+  |
-                          |  | Auth Layer |  |  JWT + API keys
-                          |  +-----+------+  |
-                          |        |          |
-                          |  +-----v------+  |
-                          |  | API Router |  |  /api/v1/*
-                          |  +-----+------+  |
-                          |        |          |
-                    +-----+--------+----------+-----+
-                    |     |        |           |     |
-              +-----v--+  |   +---v----+  +---v---+ |
-              |Vector  |  |   |RAG     |  |MCP    | |
-              |Analyzer|  |   |Detector|  |Auditor| |
-              +-----+--+  |   +---+----+  +---+---+ |
-                    |     |       |            |     |
-                    +-----+-------+------------+     |
-                          |                          |
-               +----------v-----------+   +----------v--+
-               | Threat Aggregator    |   | Provenance  |
-               | (weighted fusion)    |   | Tracker     |
-               +----------+-----------+   +------+------+
-                          |                      |
-          +---------------+-------+    +---------+--------+
-          |               |       |    |                  |
-    +-----v----+   +------v-+  +--v---v+         +-------v------+
-    |PostgreSQL|   | Redis  |  | Kafka |         |   Neo4j 5    |
-    |    16    |   |   7    |  |KRaft  |         | (Provenance) |
-    +----------+   +--------+  +-------+         +--------------+
-    Tenants,        Rate        Async              Lineage graph
-    Results,        limit       scan               Contamination
-    Audit log       cache       pipeline           propagation
+                          ┌─────────────────────────────────────────────────┐
+                          │              VERCEL (Frontend)                  │
+                          │         Next.js 14 + Tailwind + Recharts       │
+                          │                                                │
+                          │  ┌──────────┐ ┌──────────┐ ┌──────────────┐   │
+                          │  │Dashboard │ │ Vectors  │ │     RAG      │   │
+                          │  │ Metrics  │ │ Scatter  │ │  Batch Scan  │   │
+                          │  └────┬─────┘ └────┬─────┘ └──────┬───────┘   │
+                          │       │            │              │            │
+                          │  ┌────┴─────┐ ┌────┴─────┐ ┌─────┴────────┐  │
+                          │  │  Tools   │ │Provenance│ │  Telemetry   │  │
+                          │  │  Audit   │ │   DAG    │ │  Simulator   │  │
+                          │  └────┬─────┘ └────┬─────┘ └──────┬───────┘  │
+                          │       │            │              │           │
+                          │       └────────────┼──────────────┘           │
+                          │                    │                          │
+                          │            ┌───────┴───────┐                  │
+                          │            │  api.ts Layer  │                  │
+                          │            │ (RPC + REST)   │                  │
+                          │            └───────┬───────┘                  │
+                          └────────────────────┼──────────────────────────┘
+                                               │
+                          ┌────────────────────┼──────────────────────────┐
+                          │           SUPABASE │(Backend)                 │
+                          │                    │                          │
+                          │   ┌────────────────┼────────────────────┐    │
+                          │   │         PostgREST API               │    │
+                          │   │    /rest/v1/rpc/* + /rest/v1/*      │    │
+                          │   └────────────────┬────────────────────┘    │
+                          │                    │                          │
+                          │   ┌────────────────┼────────────────────┐    │
+                          │   │     8 Edge Functions (Deno)         │    │
+                          │   │                                     │    │
+                          │   │  dashboard-summary  scan-vectors    │    │
+                          │   │  scan-rag           audit-tool      │    │
+                          │   │  provenance         threat-report   │    │
+                          │   │  simulate-telemetry ingest-telemetry│    │
+                          │   └────────────────┬────────────────────┘    │
+                          │                    │                          │
+                          │   ┌────────────────┼────────────────────┐    │
+                          │   │       PostgreSQL 16 + RLS           │    │
+                          │   │                                     │    │
+                          │   │  17 tables · 7 RPC functions        │    │
+                          │   │  Row-Level Security per tenant      │    │
+                          │   │  Partitioned audit log (monthly)    │    │
+                          │   └─────────────────────────────────────┘    │
+                          └─────────────────────────────────────────────┘
+
+                          ┌─────────────────────────────────────────────────┐
+                          │        DOCKER COMPOSE (Self-Hosted Option)      │
+                          │                                                 │
+                          │  ┌──────────┐  ┌───────┐  ┌───────┐  ┌──────┐ │
+                          │  │PostgreSQL│  │ Redis │  │ Neo4j │  │Kafka │ │
+                          │  │   16     │  │   7   │  │   5   │  │KRaft │ │
+                          │  └──────────┘  └───────┘  └───────┘  └──────┘ │
+                          │                    │                            │
+                          │         ┌──────────┴──────────┐                │
+                          │         │   FastAPI Backend    │                │
+                          │         │   (14,726 LOC)       │                │
+                          │         │  SQLAlchemy + asyncpg│                │
+                          │         └─────────────────────┘                │
+                          └─────────────────────────────────────────────────┘
 ```
 
-### Data Flow — Scan Request
+### Data Flow
 
-```
-Client                  API               Kafka           Worker
-  |                      |                  |                |
-  |-- POST /scans ------->|                  |                |
-  |                      |-- Publish(req) -->|                |
-  |<-- 202 Accepted ------|                  |                |
-  |                      |                  |-- Consume(req)->|
-  |                      |                  |                 |-- Run detection
-  |                      |                  |                 |-- Write results
-  |                      |                  |<-- Publish(res)-|
-  |                      |<-- Consume(res) --|                |
-  |-- GET /scans/:id ---->|                  |                |
-  |<-- 200 {results} -----|                  |                |
-```
+1. **Frontend** renders server components that call Supabase PostgREST RPCs for read operations
+2. **Client components** (forms, simulators) call Supabase Edge Functions for write/compute operations
+3. **Edge Functions** perform analysis (entropy, cosine similarity, schema auditing) and persist results
+4. **RPC Functions** (`SECURITY DEFINER`) aggregate data across tables for dashboard views
+5. **RLS Policies** enforce tenant isolation at the database level
 
 ---
 
 ## Detection Engines
 
-### 1. Vector Integrity Analyzer
+### Vector Analyzer
+Detects poisoned embeddings in vector stores by computing:
+- **Cosine dispersion** — flags vectors deviating beyond 0.85 similarity threshold
+- **Centroid drift** — measures population-level embedding shift
+- **Z-score outliers** — statistical outlier detection (|z| > 2)
+- **Split-view detection** — identifies bimodal cluster separation indicating targeted poisoning
 
-Detects embedding poisoning in RAG vector stores and training datasets.
+### RAG Detector
+Scans retrieval-augmented generation corpora for:
+- **Shannon entropy anomalies** — detects artificially low (<2.0) or high (>6.0) bits/char
+- **Bigram perplexity** — flags documents with unusual language patterns (>600 threshold)
+- **Homoglyph attacks** — identifies Cyrillic/Greek character substitutions (a→a, e→e, o→o)
+- **Hidden instructions** — 16 regex patterns matching prompt injection (IGNORE PREVIOUS, [SYSTEM], base64 payloads)
 
-**Method:** Computes the cluster centroid of submitted embeddings, then flags vectors whose cosine similarity to the centroid falls below `VECTOR_COSINE_THRESHOLD` (default 0.85). A dispersion z-score is also computed; vectors beyond `VECTOR_DISPERSION_SIGMA` standard deviations (default 3.0) are tagged as outliers.
+### MCP Tool Auditor
+Inspects Model Context Protocol tool schemas for:
+- **Invisible Unicode** — 12 character types (zero-width joiners, RTL marks, soft hyphens)
+- **Base64 payloads** — hidden encoded instructions in descriptions
+- **Schema violations** — missing required fields, unsafe defaults
+- **Behavioral instructions** — embedded directives ("always", "never", "must")
+- **Rug-pull indicators** — suspicious update patterns
 
-**Inputs:** Batch of embedding vectors (float arrays), optional clean baseline.
+### Provenance Tracker
+Maintains a directed acyclic graph of dataset/model lineage:
+- **Node types:** dataset, model, transform, deployment, output
+- **Edge types:** DERIVED_FROM, TRAINED_ON, FINE_TUNED_FROM, SERVED_BY, CONTAMINATED_BY
+- **Contamination propagation** — recursive upstream/downstream traversal
+- **Generation depth indicator** — visual depth-based contamination heatmap
 
-**Outputs:** Verdict (`clean` / `suspicious` / `poisoned`), list of flagged vector indices, centroid drift metric, dispersion score.
+### Telemetry Simulator
+Generates synthetic agent behavior traces across 8 attack scenarios:
+- `clean` — baseline normal behavior
+- `prompt_injection` — injected system prompt overrides
+- `reward_hacking` — exploited reward signals
+- `memory_poisoning` — corrupted agent memory writes
+- `prompt_drift` — gradual prompt degradation
+- `retrieval_manipulation` — poisoned RAG retrieval results
+- `tool_hijack` — compromised tool call chains
+- `multi_agent_collusion` — coordinated multi-agent attacks
+- `slow_burn` — low-and-slow poisoning over time
 
-**Limitations:** Requires `VECTOR_MIN_BASELINE_SAMPLES` (default 100) clean vectors before emitting a definitive verdict; returns `insufficient_data` otherwise.
-
----
-
-### 2. RAG Poisoning Detector
-
-Multi-signal scanner for documents in retrieval corpora.
-
-**Signals:**
-
-| Signal | Description | Threshold |
-|--------|-------------|-----------|
-| Perplexity | Language model perplexity vs. corpus baseline | Z-score > 3.0 |
-| Shannon entropy | Character-level entropy vs. baseline | Z-score > 3.0 |
-| Homoglyph detection | Unicode lookalike substitution (е vs e) | Any match |
-| Hidden instruction | Regex patterns matching prompt-injection syntax | Any match |
-| Semantic coherence | Embedding similarity to surrounding context | Cosine < 0.6 |
-
-**Fusion:** Any two signals triggering = `suspicious`; three or more = `poisoned`.
-
----
-
-### 3. MCP Tool Auditor
-
-Static analysis of Model Context Protocol tool definitions for:
-
-- **Prompt injection:** Descriptions containing `ignore previous instructions`, role-play resets, system prompt overrides
-- **Base64 exfiltration payloads:** High ratio of base64-decodable tokens (threshold: 30%)
-- **Schema complexity abuse:** Excessively deep nesting (`MCP_MAX_PARAMETER_DEPTH`) or excessive field counts
-- **Special token injection:** GPT-style `<|...|>` tokens, Llama `[INST]` tags
-
-**Output:** Verdict per tool, per-finding breakdown with matched pattern details.
-
----
-
-### 4. Provenance Tracker
-
-Neo4j-backed lineage graph for tracking dataset contamination propagation.
-
-- Nodes: `Dataset`, `Transform`, `Model`, `Deployment`
-- Edges: `DERIVED_FROM`, `TRAINED_ON`, `FINE_TUNED_FROM`, `SERVED_BY`, `CONTAMINATED_BY`
-- Supports upstream blast-radius queries: given a poisoned dataset, identify all models and deployments in its downstream lineage
-- Shortest-path contamination routing between any two nodes
+### Threat Aggregator
+Unified cross-engine threat scoring:
+- **Engine weights:** Vector (0.30), RAG (0.25), MCP (0.25), Provenance (0.20)
+- **Severity mapping:** >=0.8 critical, >=0.55 high, >=0.3 medium, <0.3 low
+- **Trend analysis** and actionable remediation recommendations
 
 ---
 
-### 5. Threat Aggregator
+## Tech Stack
 
-Fuses outputs from all engines into a single ranked threat report per tenant:
-
-- Normalises scores to [0, 1]
-- Applies configurable per-engine weights
-- Produces a `ThreatReport` with severity level, affected resources, recommended mitigations
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Frontend** | Next.js 14, React 18, TypeScript 5.4 | Server/client components, App Router |
+| **Styling** | Tailwind CSS 3.4, custom threat palette | Dark theme, responsive design |
+| **Charts** | Recharts 2.12 | Scatter plots, histograms, time series |
+| **Icons** | Lucide React | Consistent iconography |
+| **Auth** | Supabase Auth, @supabase/ssr | Cookie-based server-side auth |
+| **Database** | PostgreSQL 16 (Supabase) | Multi-tenant with RLS |
+| **Edge Functions** | Deno (Supabase Functions) | Serverless analysis compute |
+| **Backend (alt)** | FastAPI, SQLAlchemy, asyncpg | Self-hosted REST API option |
+| **Graph DB** | Neo4j 5 | Provenance lineage (self-hosted) |
+| **Cache** | Redis 7 | Rate limiting, pub/sub (self-hosted) |
+| **Streaming** | Kafka (KRaft) | Async scan pipeline (self-hosted) |
+| **Deploy** | Vercel | Frontend CDN + edge |
+| **Containers** | Docker Compose | Full-stack self-hosted option |
 
 ---
 
-## Quick Start
+## Frontend Pages
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | Dashboard | KPI cards, threat timeline chart, threat breakdown pie, recent alerts table |
+| `/vectors` | Vector Integrity | 2D scatter plot, anomaly histogram, cosine baseline, paginated results table |
+| `/rag` | RAG Poisoning | Cosine deviation histogram, hidden instruction findings, batch upload form, results table |
+| `/tools` | MCP Auditor | Tool audit cards with findings, known threat pattern database |
+| `/provenance` | Provenance Tracker | Interactive DAG visualization, contamination panel, depth indicator, dataset registration form |
+| `/telemetry` | Telemetry | 8-scenario simulator panel, attack trace visualization, anomaly detection |
+| `/login` | Authentication | Supabase Auth login form |
+
+---
+
+## API Reference
+
+### Dashboard RPCs (PostgREST)
+
+```
+POST /rest/v1/rpc/get_dashboard_summary     { p_tenant_id }
+POST /rest/v1/rpc/get_dashboard_timeline     { p_tenant_id, p_days }
+POST /rest/v1/rpc/get_threat_breakdown       { p_tenant_id }
+POST /rest/v1/rpc/get_recent_alerts          { p_tenant_id, p_limit }
+```
+
+### Telemetry RPCs
+
+```
+POST /rest/v1/rpc/get_telemetry_summary      { p_tenant_id, p_hours }
+POST /rest/v1/rpc/get_drift_status           { p_tenant_id, p_application_id }
+POST /rest/v1/rpc/get_poisoning_timeline     { p_tenant_id, p_days }
+```
+
+### Table Queries (PostgREST)
+
+```
+GET /rest/v1/vector_analyses?tenant_id=eq.{id}&select=*&order=created_at.desc
+GET /rest/v1/rag_scans?tenant_id=eq.{id}&select=*&order=created_at.desc
+GET /rest/v1/mcp_audits?tenant_id=eq.{id}&select=*&order=created_at.desc
+GET /rest/v1/provenance_nodes?tenant_id=eq.{id}&select=*
+GET /rest/v1/provenance_edges?tenant_id=eq.{id}&select=*
+GET /rest/v1/alerts?tenant_id=eq.{id}&order=created_at.desc
+GET /rest/v1/threat_reports?tenant_id=eq.{id}&order=created_at.desc&limit=1
+GET /rest/v1/telemetry_simulations?tenant_id=eq.{id}&order=created_at.desc
+```
+
+### Edge Functions
+
+```
+POST /functions/v1/scan-vectors       { dataset_id, vectors[][], baseline_vectors? }
+POST /functions/v1/scan-rag           { document_id, content, source? }
+POST /functions/v1/audit-tool         { tool_name, tool_version, schema, description? }
+POST /functions/v1/provenance         { node_type, label, attributes? }
+POST /functions/v1/simulate-telemetry { scenario, num_traces, num_agents, poison_ratio }
+POST /functions/v1/ingest-telemetry   { type, application_id, records[] }
+GET  /functions/v1/dashboard-summary  ?days=7
+GET  /functions/v1/threat-report
+```
+
+---
+
+## Database Schema
+
+### Core Tables (17)
+
+```
+tenants              — Multi-tenant isolation
+api_keys             — Hashed API key management
+scans                — Master scan records (6 engines)
+vector_analyses      — Vector poisoning detection results
+rag_scans            — RAG document scan results
+mcp_audits           — MCP tool audit results
+provenance_nodes     — Lineage graph nodes (5 types)
+provenance_edges     — Lineage graph edges (5 types)
+threat_reports       — Unified threat summaries
+alerts               — Severity-sorted alert records
+audit_log            — Monthly-partitioned audit trail
+telemetry_simulations— Attack scenario simulations
+ml_telemetry         — ML inference telemetry
+llm_telemetry        — LLM inference telemetry
+ground_truth         — Validation outcomes
+drift_baselines      — Reference distributions for PSI
+detection_policies   — Governance rules and thresholds
+```
+
+### Security Model
+
+- **Row-Level Security (RLS)** on all tables — tenant isolation enforced at DB level
+- **SECURITY DEFINER** RPC functions for cross-tenant aggregations
+- **Anon read policies** scoped to demo tenant for public preview
+- **Partitioned audit log** — monthly partitions for performance
+- **API key hashing** — keys stored as SHA-256 hashes, never plaintext
+
+---
+
+## Edge Functions
+
+| Function | Method | Purpose |
+|----------|--------|---------|
+| `dashboard-summary` | GET | Parallel RPC aggregation (4 RPCs) |
+| `scan-vectors` | POST | Vector cosine/centroid/z-score analysis |
+| `scan-rag` | POST | Entropy + perplexity + homoglyph + hidden instruction detection |
+| `audit-tool` | POST | Unicode + base64 + schema + behavioral analysis |
+| `provenance` | POST/GET | DAG node/edge management |
+| `simulate-telemetry` | POST | Seeded PRNG synthetic trace generation |
+| `ingest-telemetry` | POST | Bulk ML/LLM telemetry ingestion |
+| `threat-report` | GET | Weighted multi-engine threat fusion |
+
+---
+
+## Infrastructure
+
+### Docker Compose (Self-Hosted)
+
+```yaml
+services:
+  postgres:   PostgreSQL 16 — Primary data store
+  redis:      Redis 7 — Rate limiting, caching (256 MB LRU)
+  neo4j:      Neo4j 5 — Provenance graph database
+  kafka:      Kafka (KRaft) — Async scan pipeline
+  api:        FastAPI — REST backend (port 8000)
+  frontend:   Next.js — Dashboard (port 3000)
+```
+
+Network: isolated bridge `172.28.0.0/16` with healthchecks on all services.
+
+### Supabase (Managed)
+
+- **Project:** `zrnpxfztyzlhyapnbrbc`
+- **Edge Functions:** 8 deployed Deno functions
+- **Database:** PostgreSQL 16 with 17 tables, 7 RPCs, RLS policies
+- **Auth:** Supabase Auth with cookie-based SSR
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- Docker >= 24.0
-- Docker Compose >= 2.20
-- Make
+- Node.js 20+
+- npm or yarn
+- Supabase account (or Docker for self-hosted)
 
-### Steps
-
-```bash
-# 1. Clone and enter the project
-git clone https://github.com/ai-cowboys/poisoning-detection-paas
-cd poisoning-detection-paas
-
-# 2. Configure environment
-cp infrastructure/.env.example infrastructure/.env
-# Edit infrastructure/.env — set all CHANGE_ME values
-
-# 3. Start the full stack
-make dev
-
-# 4. Verify all services are healthy
-docker compose -f infrastructure/docker-compose.yml ps
-
-# 5. Open the dashboard
-open http://localhost:3000
-
-# 6. Call the API
-curl http://localhost:8000/health
-```
-
----
-
-## API Documentation
-
-Interactive docs are served by FastAPI at `http://localhost:8000/docs` (Swagger UI) and `http://localhost:8000/redoc` (ReDoc).
-
-### Authentication
-
-All endpoints (except `/health` and `/auth/token`) require an `Authorization: Bearer <token>` header.
-
-Obtain a token:
+### Quick Start (Supabase)
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/auth/token \
-  -H "Content-Type: application/json" \
-  -d '{"api_key": "your-api-key"}'
-```
+# Clone
+git clone https://github.com/iaintheardofu/platform.git
+cd platform/frontend
 
-### Core Endpoints
+# Install dependencies
+npm install
 
-#### Vector Analysis
+# Configure environment
+cp .env.local.example .env.local
+# Edit .env.local with your Supabase project URL and anon key
 
-```
-POST   /api/v1/vectors/analyze
-       Submit a batch of embedding vectors for poisoning analysis.
-
-GET    /api/v1/vectors/{scan_id}
-       Retrieve analysis results by scan ID.
-
-GET    /api/v1/vectors/
-       List recent scans for the authenticated tenant.
-```
-
-Request body (`POST /api/v1/vectors/analyze`):
-
-```json
-{
-  "dataset_id": "my-rag-index-v3",
-  "vectors": [[0.12, 0.34, ...], ...],
-  "baseline_vectors": [[...], ...],
-  "metadata": {"description": "nightly RAG index snapshot"}
-}
-```
-
-#### RAG Document Scanning
-
-```
-POST   /api/v1/rag/scan
-       Submit a document or document batch for poisoning signals.
-
-GET    /api/v1/rag/{scan_id}
-       Retrieve scan results.
-```
-
-#### MCP Tool Auditing
-
-```
-POST   /api/v1/tools/audit
-       Submit an MCP tool schema definition for static analysis.
-
-GET    /api/v1/tools/{audit_id}
-       Retrieve audit results.
-
-GET    /api/v1/tools/
-       List recent audits for the authenticated tenant.
-```
-
-Request body (`POST /api/v1/tools/audit`):
-
-```json
-{
-  "tool_name": "send_email",
-  "description": "Sends an email to the specified address.",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "to":      {"type": "string"},
-      "subject": {"type": "string"},
-      "body":    {"type": "string"}
-    }
-  }
-}
-```
-
-#### Provenance
-
-```
-POST   /api/v1/provenance/nodes
-       Register a new provenance node (dataset, transform, model, deployment).
-
-POST   /api/v1/provenance/edges
-       Add a lineage edge between two existing nodes.
-
-GET    /api/v1/provenance/{node_id}/lineage
-       Retrieve full upstream lineage chain for a node.
-
-GET    /api/v1/provenance/{node_id}/blast-radius
-       Identify all downstream nodes reachable from a poisoned node.
-```
-
-#### Telemetry Simulator
-
-```
-POST   /api/v1/telemetry/simulate
-       Generate synthetic telemetry dataset with configurable attack scenarios.
-
-POST   /api/v1/telemetry/analyze
-       Analyze provided telemetry data for behavioral anomalies.
-
-POST   /api/v1/telemetry/distribution-shift
-       Compare baseline vs current telemetry distributions (KL divergence).
-
-GET    /api/v1/telemetry/scenarios
-       List available attack scenarios with descriptions and indicators.
-```
-
-#### Dashboard
-
-```
-GET    /api/v1/dashboard/summary
-       Tenant-scoped threat summary (counts by verdict, engine, severity).
-
-GET    /api/v1/dashboard/timeline
-       Recent detection events ordered by severity.
-```
-
-#### Health
-
-```
-GET    /health
-       Liveness probe — returns 200 if the server is running.
-
-GET    /health/ready
-       Readiness probe — checks Postgres, Redis, Neo4j connectivity.
-```
-
----
-
-## Configuration Reference
-
-All configuration is loaded from environment variables. See `infrastructure/.env.example` for a fully-annotated template.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ENVIRONMENT` | `development` | One of `development`, `staging`, `production` |
-| `LOG_LEVEL` | `INFO` | Python logging level |
-| `DATABASE_URL` | — | Async PostgreSQL DSN (`postgresql+asyncpg://...`) |
-| `REDIS_URL` | — | Redis DSN (`redis://:password@host:port/db`) |
-| `NEO4J_URI` | — | Neo4j Bolt URI (`bolt://host:port`) |
-| `KAFKA_BOOTSTRAP_SERVERS` | — | Comma-separated broker addresses |
-| `JWT_SECRET` | — | HS256 signing secret (min 32 chars) |
-| `JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
-| `JWT_EXPIRY_MINUTES` | `60` | Access token expiry |
-| `VECTOR_COSINE_THRESHOLD` | `0.85` | Cosine similarity floor for outlier flagging |
-| `VECTOR_DISPERSION_SIGMA` | `3.0` | Z-score cutoff for dispersion anomalies |
-| `MCP_MAX_DESCRIPTION_LENGTH` | `2000` | Character limit on tool descriptions |
-| `API_RATE_LIMIT_PER_MINUTE` | `100` | Default rate limit (starter tier) |
-
-Full reference: `backend/config.py` — the Pydantic settings classes are the authoritative source of truth.
-
----
-
-## Development Setup
-
-### Local (no Docker)
-
-Requirements: Python 3.12+, Node.js 20+, PostgreSQL 16, Redis 7, Neo4j 5, Kafka (KRaft)
-
-```bash
-# Backend
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
-cp ../infrastructure/.env.example ../.env
-uvicorn backend.main:app --reload --port 8000
-
-# Frontend
-cd frontend
-npm ci
+# Run development server
 npm run dev
 ```
 
-### Docker (recommended)
+### Quick Start (Docker)
 
 ```bash
-make dev          # Start full stack
-make logs         # Tail all container logs
-make shell-api    # Open a shell in the API container
-make psql         # Connect to Postgres via psql
+# Clone
+git clone https://github.com/iaintheardofu/platform.git
+cd platform
+
+# Start all services
+make dev
+
+# Or use Docker Compose directly
+cd infrastructure && docker compose up -d
+
+# Run database migrations
+make migrate
+
+# Seed test data
+cd scripts && npm install && npm run seed
+```
+
+### Makefile Commands
+
+```bash
+make dev              # Start all Docker services
+make stop             # Stop all services
+make psql             # PostgreSQL shell
+make redis-cli        # Redis shell
+make cypher-shell     # Neo4j shell
+make migrate          # Run database migrations
+make test             # Run backend tests
+make lint             # Lint all code
+make build            # Build production images
+make ci               # Full CI pipeline (lint + type-check + test)
 ```
 
 ---
 
-## Testing
+## Environment Variables
+
+### Frontend (`frontend/.env.local`)
 
 ```bash
-# Run all tests
-make test
-
-# Run with coverage
-make test-coverage
-
-# Run a specific test file
-make test FILE=backend/tests/test_vector_analyzer.py
-
-# Lint
-make lint
-
-# Type check
-make type-check
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...your-anon-key
+NEXT_PUBLIC_API_URL=http://localhost:8000  # Optional: self-hosted backend
 ```
 
-Test structure:
+### Supabase Edge Functions
 
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...  # For elevated operations
 ```
-backend/tests/
-  unit/
-    test_vector_analyzer.py    # Pure-math helpers, no I/O
-    test_rag_detector.py
-    test_mcp_auditor.py
-  integration/
-    test_api_vectors.py        # Full HTTP round-trip via httpx
-    test_api_auth.py
-    test_provenance.py
-  conftest.py                  # Fixtures: TestClient, in-memory DB
-```
+
+### Docker (.env)
+
+See `infrastructure/.env.example` for the full list (50+ variables).
 
 ---
 
 ## Deployment
 
-### Docker Compose (staging)
+### Vercel (Frontend)
+
+The frontend deploys automatically from the `main` branch:
 
 ```bash
-ENVIRONMENT=staging docker compose \
-  -f infrastructure/docker-compose.yml \
-  up -d --build
+# Manual deploy
+cd frontend
+npx vercel --prod
 ```
 
-### Kubernetes (production)
+Set environment variables in Vercel project settings:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
-Helm chart is located in `deploy/helm/`. See `deploy/helm/README.md` for values reference.
-
-```bash
-helm upgrade --install poisoning-detection deploy/helm/ \
-  --namespace poisoning-detection \
-  --set image.tag=$(git rev-parse --short HEAD) \
-  --set environment=production \
-  --values deploy/helm/values-production.yaml
-```
-
-### Database migrations
+### Supabase (Backend)
 
 ```bash
-# Generate a new migration
-make migration MSG="add scan_metadata column"
+# Deploy edge functions
+supabase functions deploy scan-vectors
+supabase functions deploy scan-rag
+supabase functions deploy audit-tool
+supabase functions deploy provenance
+supabase functions deploy dashboard-summary
+supabase functions deploy threat-report
+supabase functions deploy simulate-telemetry
+supabase functions deploy ingest-telemetry
 
 # Apply migrations
-make migrate
-
-# Rollback one step
-make migrate-down
+supabase db push
 ```
+
+---
+
+## Project Structure
+
+```
+poisoning-detection-paas/
+├── frontend/                    # Next.js 14 dashboard
+│   ├── src/
+│   │   ├── app/                 # App Router pages
+│   │   │   ├── page.tsx         # Dashboard (KPIs, charts, alerts)
+│   │   │   ├── vectors/         # Vector integrity analysis
+│   │   │   ├── rag/             # RAG poisoning detection
+│   │   │   ├── tools/           # MCP tool auditor
+│   │   │   ├── provenance/      # Lineage DAG + contamination
+│   │   │   ├── telemetry/       # Telemetry simulator
+│   │   │   ├── login/           # Authentication
+│   │   │   └── auth/callback/   # OAuth callback
+│   │   ├── components/          # Shared UI (Sidebar, MetricCard, etc.)
+│   │   └── lib/                 # API client, Supabase clients, types
+│   ├── public/                  # Static assets
+│   ├── tailwind.config.ts       # Threat severity color palette
+│   ├── next.config.mjs          # Security headers, image optimization
+│   └── vercel.json              # Vercel deployment config
+│
+├── backend/                     # FastAPI REST API (self-hosted option)
+│   ├── main.py                  # App entry, middleware, lifespan
+│   ├── config.py                # Pydantic settings
+│   ├── api/                     # Route aggregation, dependencies
+│   ├── routers/                 # Endpoint handlers (8 routers)
+│   ├── services/                # Business logic (6 analyzers)
+│   ├── models/                  # SQLAlchemy ORM + Pydantic schemas
+│   ├── middleware/              # Auth middleware
+│   └── tests/                   # pytest test suite
+│
+├── supabase/                    # Supabase configuration
+│   ├── functions/               # 8 Edge Functions (Deno/TypeScript)
+│   │   ├── dashboard-summary/   # Parallel RPC aggregation
+│   │   ├── scan-vectors/        # Vector analysis engine
+│   │   ├── scan-rag/            # RAG poisoning detector
+│   │   ├── audit-tool/          # MCP schema auditor
+│   │   ├── provenance/          # Lineage graph operations
+│   │   ├── simulate-telemetry/  # Synthetic trace generator
+│   │   ├── ingest-telemetry/    # Bulk telemetry ingestion
+│   │   ├── threat-report/       # Weighted threat fusion
+│   │   └── _shared/             # Supabase client + tenant auth
+│   └── migrations/              # PostgreSQL schema + seed data
+│       ├── 00001_initial_schema.sql  # Core tables, RPCs, RLS
+│       └── 00002_telemetry_tables.sql # Telemetry, drift, policies
+│
+├── infrastructure/              # Docker deployment
+│   ├── docker-compose.yml       # Full stack (6 services)
+│   ├── Dockerfile.backend       # Multi-stage Python build
+│   ├── Dockerfile.frontend      # Multi-stage Node.js build
+│   ├── init-db.sql              # PostgreSQL init script
+│   ├── neo4j-init.cypher        # Neo4j graph init
+│   └── .env.example             # Environment template
+│
+├── scripts/                     # Utilities
+│   └── seed-database.ts         # Database seeding script
+│
+├── docs/                        # Documentation
+├── Makefile                     # 40+ dev/build/test targets
+└── README.md                    # This file
+```
+
+---
+
+## License
+
+Proprietary. All rights reserved.
+
+---
+
+Built by [AI Cowboys](https://github.com/The-AI-Cowboys-Projects) | Powered by Supabase + Vercel
