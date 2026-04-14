@@ -203,6 +203,19 @@ export function Sidebar() {
             <button
               aria-label="Sign out"
               className="text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0"
+              onClick={async () => {
+                try {
+                  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+                  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+                  if (supabaseUrl && supabaseKey) {
+                    const { createBrowserClient } = await import('@supabase/ssr')
+                    const supabase = createBrowserClient(supabaseUrl, supabaseKey)
+                    await supabase.auth.signOut()
+                  }
+                  localStorage.removeItem('ai_spm_jwt')
+                } catch { /* ignore */ }
+                window.location.href = '/login'
+              }}
             >
               <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
             </button>

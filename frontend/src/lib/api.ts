@@ -859,8 +859,57 @@ export async function runSimulation(config: {
   poison_ratio: number
   seed?: number
 }): Promise<any> {
-  if (!IS_SUPABASE) throw new Error('No backend configured for simulation')
-  return callEdgeFunction('simulate-telemetry', config)
+  if (IS_SUPABASE) {
+    return callEdgeFunction('simulate-telemetry', config)
+  }
+  if (IS_MOCK) {
+    // Return structure matching SimulationResult expected by SimulationPanel
+    const traces = config.num_traces
+    const poisoned = Math.round(traces * (config.poison_ratio ?? 0.1))
+    return mockDelay({
+      simulation_id: `sim-${Date.now()}`,
+      scenario: config.scenario,
+      traces_generated: traces,
+      overall_risk_score: config.poison_ratio > 0.3 ? 0.7 + Math.random() * 0.25 : 0.15 + Math.random() * 0.3,
+      verdict: config.poison_ratio > 0.3 ? 'poisoned' : config.poison_ratio > 0.1 ? 'suspicious' : 'clean',
+      anomaly_breakdown: {
+        prompt_risk_spike: Math.round(poisoned * 0.3),
+        tool_denial_surge: Math.round(poisoned * 0.15),
+        latency_anomaly: Math.round(poisoned * 0.2),
+        distribution_shift: Math.round(poisoned * 0.15),
+        memory_corruption: Math.round(poisoned * 0.1),
+        retrieval_hijack: Math.round(poisoned * 0.1),
+      },
+      prompt_risk_distribution: { mean: 0.35, std: 0.18, p95: 0.72, p99: 0.89 },
+      tool_denial_rate: 0.08 + Math.random() * 0.12,
+      avg_latency_ms: 120 + Math.random() * 80,
+      latency_p99_ms: 450 + Math.random() * 200,
+      distribution_shift_score: config.poison_ratio * 2.5,
+      total_traces: traces,
+      total_spans: traces * (4 + Math.floor(Math.random() * 3)),
+      anomalous_traces: poisoned,
+      execution_timeline: Array.from({ length: Math.min(traces, 20) }, (_, i) => ({
+        timestamp: new Date(Date.now() - (20 - i) * 60_000).toISOString(),
+        agent_id: `agent-${i % config.num_agents}`,
+        event_type: ['prompt_submission', 'tool_call', 'rag_retrieval', 'model_inference'][i % 4],
+        duration_ms: 50 + Math.random() * 200,
+        risk_score: i < poisoned ? 0.6 + Math.random() * 0.4 : Math.random() * 0.3,
+        is_anomalous: i < poisoned,
+        anomaly_types: i < poisoned ? ['prompt_risk_spike'] : [],
+      })),
+      root_cause_traces: Array.from({ length: Math.min(poisoned, 5) }, (_, i) => ({
+        trace_id: `trace-${i}`,
+        root_cause_span_id: `span-${i}-0`,
+        anomaly_types: ['prompt_risk_spike', 'distribution_shift'],
+        risk_score: 0.7 + Math.random() * 0.3,
+      })),
+      generated_at: new Date().toISOString(),
+    }, 900)
+  }
+  return apiFetch('/api/v1/telemetry/simulate', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -872,6 +921,202 @@ export async function scanRAGDocument(
   documentId: string,
   source?: string,
 ): Promise<any> {
-  if (!IS_SUPABASE) throw new Error('No backend configured for RAG scanning')
-  return callEdgeFunction('scan-rag', { document_id: documentId, content, source })
+  if (IS_SUPABASE) {
+    return callEdgeFunction('scan-rag', { document_id: documentId, content, source })
+  }
+  if (IS_MOCK) {
+    const hasInjection = /ignore|system|override|disregard|forget/i.test(content)
+    return mockDelay({
+      id: `scan-${Date.now()}`,
+      document_id: documentId,
+      source: source ?? 'upload',
+      cosine_deviation: hasInjection ? 0.7 + Math.random() * 0.25 : Math.random() * 0.3,
+      verdict: hasInjection ? 'malicious' : 'clean',
+      has_hidden_instructions: hasInjection,
+      hidden_instruction_snippet: hasInjection ? content.slice(0, 100) : null,
+      scan_duration_ms: 200 + Math.random() * 300,
+      timestamp: new Date().toISOString(),
+    }, 300 + Math.random() * 400)
+  }
+  return apiFetch('/api/v1/rag/scan', {
+    method: 'POST',
+    body: JSON.stringify({ document_id: documentId, content, source }),
+  })
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALERT STATUS UPDATE — called by AlertsPanel (client component)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function updateAlertStatus(
+  alertId: string,
+  status: 'open' | 'acknowledged' | 'resolved',
+): Promise<{ id: string; status: string }> {
+  if (IS_SUPABASE) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/threat_items?id=eq.${alertId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY!,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({ status }),
+    })
+    if (!res.ok) throw new Error(`Failed to update alert: ${res.status}`)
+    const rows = await res.json()
+    return { id: alertId, status: rows?.[0]?.status ?? status }
+  }
+  if (IS_MOCK) {
+    return mockDelay({ id: alertId, status })
+  }
+  return apiFetch(`/api/v1/alerts/${alertId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SETTINGS — tenant config, notification prefs, detection thresholds
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function updateTenantSettings(settings: {
+  tenantName?: string
+  contactEmail?: string
+  tier?: string
+}): Promise<{ success: boolean }> {
+  if (IS_SUPABASE) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/tenants?id=eq.${DEMO_TENANT}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY!,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        name: settings.tenantName,
+        contact_email: settings.contactEmail,
+        tier: settings.tier,
+      }),
+    })
+    if (!res.ok) throw new Error(`Failed to update tenant: ${res.status}`)
+    return { success: true }
+  }
+  if (IS_MOCK) return mockDelay({ success: true })
+  return apiFetch('/api/v1/tenants/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(settings),
+  })
+}
+
+export async function updateNotificationPrefs(prefs: Record<string, unknown>): Promise<{ success: boolean }> {
+  if (IS_SUPABASE) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/tenants?id=eq.${DEMO_TENANT}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY!,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ notification_prefs: prefs }),
+    })
+    if (!res.ok) throw new Error(`Failed to update notifications: ${res.status}`)
+    return { success: true }
+  }
+  if (IS_MOCK) return mockDelay({ success: true })
+  return apiFetch('/api/v1/tenants/notifications', {
+    method: 'PATCH',
+    body: JSON.stringify(prefs),
+  })
+}
+
+export async function updateDetectionThresholds(thresholds: Record<string, number>): Promise<{ success: boolean }> {
+  if (IS_SUPABASE) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/tenants?id=eq.${DEMO_TENANT}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY!,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ detection_thresholds: thresholds }),
+    })
+    if (!res.ok) throw new Error(`Failed to update thresholds: ${res.status}`)
+    return { success: true }
+  }
+  if (IS_MOCK) return mockDelay({ success: true })
+  return apiFetch('/api/v1/tenants/thresholds', {
+    method: 'PATCH',
+    body: JSON.stringify(thresholds),
+  })
+}
+
+export async function createApiKey(name: string): Promise<{ id: string; name: string; prefix: string; key: string }> {
+  if (IS_SUPABASE) {
+    return callRpc('create_api_key', { p_tenant_id: DEMO_TENANT, p_name: name })
+  }
+  if (IS_MOCK) {
+    const prefix = `aispm_${name.toLowerCase().replace(/\s+/g, '_').slice(0, 4)}_${Math.random().toString(36).slice(2, 6)}`
+    const key = `${prefix}_${Array.from({ length: 32 }, () => Math.random().toString(36)[2]).join('')}`
+    return mockDelay({ id: `key-${Date.now()}`, name, prefix, key })
+  }
+  return apiFetch('/api/v1/tenants/api-keys', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function revokeApiKey(keyId: string): Promise<{ success: boolean }> {
+  if (IS_SUPABASE) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/api_keys?id=eq.${keyId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY!,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ is_revoked: true }),
+    })
+    if (!res.ok) throw new Error(`Failed to revoke key: ${res.status}`)
+    return { success: true }
+  }
+  if (IS_MOCK) return mockDelay({ success: true })
+  return apiFetch(`/api/v1/tenants/api-keys/${keyId}`, { method: 'DELETE' })
+}
+
+export async function fetchSystemHealth(): Promise<Array<{
+  name: string
+  status: 'healthy' | 'degraded' | 'down'
+  latency_ms: number | null
+  uptime_pct: number | null
+}>> {
+  if (IS_SUPABASE) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+        headers: { apikey: SUPABASE_KEY!, Authorization: `Bearer ${SUPABASE_KEY}` },
+      })
+      const supabaseOk = res.ok
+      return [
+        { name: 'Supabase Edge', status: supabaseOk ? 'healthy' : 'down', latency_ms: null, uptime_pct: null },
+        { name: 'PostgreSQL',    status: supabaseOk ? 'healthy' : 'degraded', latency_ms: null, uptime_pct: null },
+      ]
+    } catch {
+      return [{ name: 'Supabase Edge', status: 'down', latency_ms: null, uptime_pct: null }]
+    }
+  }
+  if (IS_MOCK) {
+    return mockDelay([
+      { name: 'FastAPI Backend', status: 'healthy', latency_ms: 12, uptime_pct: 99.97 },
+      { name: 'PostgreSQL',     status: 'healthy', latency_ms: 3,  uptime_pct: 99.99 },
+      { name: 'Redis Cache',    status: 'healthy', latency_ms: 1,  uptime_pct: 99.99 },
+      { name: 'Neo4j Graph',    status: 'healthy', latency_ms: 8,  uptime_pct: 99.95 },
+      { name: 'Supabase Edge',  status: 'healthy', latency_ms: 45, uptime_pct: 99.90 },
+      { name: 'Kafka Streaming', status: 'degraded', latency_ms: null, uptime_pct: null },
+    ])
+  }
+  return apiFetch('/api/v1/health/services')
 }

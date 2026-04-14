@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { Upload, X, FileText, Loader2, CheckCircle2 } from 'lucide-react'
+import { Upload, X, FileText, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { scanRAGDocument } from '@/lib/api'
 
 type UploadState = 'idle' | 'uploading' | 'success' | 'error'
 
@@ -52,18 +53,21 @@ export function BatchUploadForm() {
       setError(null)
 
       try {
-        // Batch upload uses client-side progress simulation.
-        // The scan-rag edge function requires authenticated users which aren't
-        // available in demo/anon mode, so we simulate the upload flow and show
-        // success. In production with auth, this would call the edge function.
         for (let i = 0; i < files.length; i++) {
+          // Show 50% progress while scanning
           setFiles((prev) =>
             prev.map((f, j) => ({
               ...f,
               progress: j < i ? 100 : j === i ? 50 : 0,
             })),
           )
-          await new Promise((r) => setTimeout(r, 300 + Math.random() * 400))
+
+          // Read file content and call scanRAGDocument
+          const content = await files[i].file.text()
+          const docId = `upload-${files[i].file.name}-${Date.now()}`
+          await scanRAGDocument(content, docId, files[i].file.name)
+
+          // Mark complete
           setFiles((prev) =>
             prev.map((f, j) => ({ ...f, progress: j <= i ? 100 : 0 })),
           )

@@ -33,6 +33,7 @@ import {
   FlaskConical,
   RefreshCw,
 } from 'lucide-react'
+import { runSimulation } from '@/lib/api'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -718,38 +719,12 @@ export function SimulationPanel({ scenarios }: SimulationPanelProps) {
       num_traces: config.num_traces,
       num_agents: config.num_agents,
       poison_ratio: config.poison_ratio / 100,
-      ...(config.seed !== '' ? { seed: config.seed } : {}),
+      ...(config.seed !== '' ? { seed: Number(config.seed) } : {}),
     }
 
-    const startTime = Date.now()
-
     try {
-      // Simulation runs client-side using the deterministic mock engine.
-      // The edge function requires authenticated users which aren't available
-      // in demo/anon mode, so we use the built-in simulation engine directly.
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      if (apiUrl) {
-        const res = await fetch(`${apiUrl}/api/v1/telemetry/simulate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        if (!res.ok) {
-          let message = `Simulation failed: ${res.status}`
-          try {
-            const body = await res.json()
-            if (body?.error?.message) message = body.error.message
-          } catch {
-            /* ignore */
-          }
-          throw new Error(message)
-        }
-        const data: SimulationResult = await res.json()
-        setResult(data)
-      } else {
-        await new Promise((r) => setTimeout(r, 900))
-        setResult(buildMockResult(config))
-      }
+      const data: SimulationResult = await runSimulation(payload)
+      setResult(data)
       setRunState('success')
     } catch (err) {
       setRunState('error')
