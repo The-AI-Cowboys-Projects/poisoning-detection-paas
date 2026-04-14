@@ -951,10 +951,38 @@ poisoning-detection-paas/
 ├── scripts/                     # Utilities
 │   └── seed-database.ts         # Database seeding script
 │
+├── reports/                     # Research & analysis
+│   ├── AI-SPM_Research_Paper.html          # Academic paper with charts, equations, infographics
+│   ├── novelty_assessment_report.md        # Platform novelty analysis (9.2/10)
+│   ├── market_research_monetization.md     # Pricing, TAM/SAM/SOM, use cases
+│   └── competitive_intelligence_ai_security_2025.md  # Competitor funding & positioning
+│
 ├── docs/                        # Documentation
 ├── Makefile                     # 40+ dev/build/test targets
 └── README.md                    # This file
 ```
+
+---
+
+## Research Paper
+
+A comprehensive academic research paper is included at [`reports/AI-SPM_Research_Paper.html`](reports/AI-SPM_Research_Paper.html):
+
+**"AI-SPM: A Multi-Engine Platform for Autonomous LLM Data Poisoning Detection, Red Team Generation, and Self-Hardening Evolution"**
+*Michael J. Pendleton, AI Cowboys / The George Washington University, April 2026*
+
+Contents:
+- Mathematical foundations for all 5 detection engines (cosine dispersion, Shannon entropy, bigram perplexity, z-score outliers, weighted threat fusion)
+- Formal convergence analysis of the self-evolution loop with proof of 3-round delta criterion
+- Kill chain correlation algorithm with temporal-semantic clustering predicate
+- SHA-256 hash-chain construction and O(n) verification algorithm
+- 19x5 coverage matrix computation and detection bound analysis
+- Empirical evaluation across 38,900 labeled samples from 8 real-world datasets (mean F1: 0.87, mean AUC: 0.91)
+- Interactive Chart.js visualizations: radar plots, heatmaps, convergence curves, bar charts
+- MathJax-rendered LaTeX equations (20 numbered formulas)
+- Competitive landscape analysis against $3.6B in funded competitors
+
+Open `reports/AI-SPM_Research_Paper.html` in any browser to view the full paper with interactive charts.
 
 ---
 

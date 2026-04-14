@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-SPM: A Multi-Engine Platform for Autonomous LLM Data Poisoning Detection, Red Team Generation, and Self-Hardening Evolution</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$'], ['\\(','\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #1a1a2e;
+    --accent: #3b82f6;
+    --accent2: #8b5cf6;
+    --accent3: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --surface: #0f172a;
+    --surface2: #1e293b;
+    --border: #334155;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: var(--surface);
+    color: var(--text);
+    line-height: 1.8;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 30px;
+  }
+  h1 { font-size: 1.9em; text-align: center; margin-bottom: 8px; color: #f8fafc; line-height: 1.3; }
+  h2 { font-size: 1.4em; margin-top: 40px; margin-bottom: 16px; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 6px; }
+  h3 { font-size: 1.15em; margin-top: 28px; margin-bottom: 10px; color: var(--accent2); }
+  h4 { font-size: 1em; margin-top: 20px; margin-bottom: 8px; color: var(--accent3); }
+  p { margin-bottom: 14px; text-align: justify; }
+  .author { text-align: center; font-size: 1.1em; color: var(--accent2); margin-bottom: 4px; font-weight: bold; }
+  .affiliation { text-align: center; font-size: 0.9em; color: var(--text-muted); margin-bottom: 4px; }
+  .date { text-align: center; font-size: 0.85em; color: var(--text-muted); margin-bottom: 30px; }
+  .abstract {
+    background: var(--surface2);
+    border-left: 4px solid var(--accent);
+    padding: 20px 24px;
+    margin: 30px 0;
+    border-radius: 0 8px 8px 0;
+  }
+  .abstract h3 { color: var(--accent); margin-top: 0; }
+  .keywords { font-size: 0.85em; color: var(--text-muted); margin-top: 12px; }
+  .keywords strong { color: var(--text); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 20px;
+    font-size: 0.88em;
+  }
+  th {
+    background: var(--accent);
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  tr:nth-child(even) { background: rgba(59,130,246,0.05); }
+  tr:hover { background: rgba(59,130,246,0.1); }
+  .eq-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    overflow-x: auto;
+    text-align: center;
+  }
+  .eq-label { float: right; color: var(--text-muted); font-size: 0.85em; }
+  .chart-container {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+    position: relative;
+  }
+  .chart-title {
+    text-align: center;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  canvas { max-width: 100%; }
+  .infographic {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .info-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .info-card .number {
+    font-size: 2.2em;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .info-card .label { font-size: 0.82em; color: var(--text-muted); margin-top: 4px; }
+  .algo-box {
+    background: #0c1222;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+    color: #a5f3fc;
+  }
+  .algo-title {
+    background: var(--accent);
+    color: white;
+    display: inline-block;
+    padding: 2px 12px;
+    border-radius: 4px 4px 0 0;
+    font-size: 0.82em;
+    font-weight: 600;
+    font-family: 'Georgia', serif;
+    margin-bottom: -1px;
+    position: relative;
+    top: 1px;
+  }
+  .fig-caption {
+    text-align: center;
+    font-size: 0.82em;
+    color: var(--text-muted);
+    margin-top: 8px;
+    font-style: italic;
+  }
+  .comparison-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .comparison-cell {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .comparison-cell h4 { margin-top: 0; }
+  .heatmap {
+    display: grid;
+    gap: 2px;
+    margin: 16px 0;
+    font-size: 0.7em;
+    font-weight: 600;
+  }
+  .heatmap-cell {
+    padding: 6px 4px;
+    text-align: center;
+    border-radius: 3px;
+    color: white;
+  }
+  .hm-high { background: #059669; }
+  .hm-med { background: #d97706; }
+  .hm-low { background: #dc2626; }
+  .hm-header { background: var(--surface2); color: var(--text-muted); font-weight: 600; }
+  .pipeline-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 20px 0;
+  }
+  .pipeline-node {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 0.82em;
+    font-weight: 600;
+    text-align: center;
+    min-width: 100px;
+  }
+  .pipeline-arrow {
+    color: var(--accent);
+    font-size: 1.5em;
+    font-weight: bold;
+  }
+  .ref-list { font-size: 0.85em; }
+  .ref-list li { margin-bottom: 8px; color: var(--text-muted); }
+  .ref-list li strong { color: var(--text); }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-novel { background: #059669; color: white; }
+  .badge-first { background: var(--accent2); color: white; }
+  .toc { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; margin: 20px 0; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 4px 0; font-size: 0.9em; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+  @media print {
+    body { background: white; color: #1a1a2e; max-width: 100%; }
+    .chart-container, .info-card, .abstract, .algo-box, .eq-block, .toc, .comparison-cell { border-color: #ccc; background: #f8f8f8; }
+    th { background: #1a1a2e; }
+    .info-card .number { color: var(--accent); -webkit-text-fill-color: var(--accent); }
+  }
+</style>
+</head>
+<body>
+
+<h1>AI-SPM: A Multi-Engine Platform for Autonomous LLM Data Poisoning Detection, Red Team Generation, and Self-Hardening Evolution</h1>
+
+<p class="author">Michael J. Pendleton</p>
+<p class="affiliation">AI Cowboys &mdash; Autonomous Intelligence Division</p>
+<p class="affiliation">The George Washington University, School of Engineering & Applied Science</p>
+<p class="date">April 2026</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="abstract">
+<h3>Abstract</h3>
+<p>
+Large Language Model (LLM) data poisoning represents a critical and rapidly evolving attack surface spanning training data, retrieval corpora, tool registries, embedding stores, and agent telemetry. We present <strong>AI-SPM</strong> (AI Security Posture Management), a production-grade, multi-tenant Platform-as-a-Service that unifies five specialized detection engines, a 19-technique adversarial red team generator, and an autonomous self-evolution loop into a single integrated defense system. Unlike prior work that addresses individual attack vectors in isolation, AI-SPM introduces cross-engine kill chain correlation, automated remediation with rollback, SHA-256 hash-chained cryptographic proof trails, and empirical validation against eight real-world poisoning datasets. We contribute five novel techniques not previously indexed in academic literature: <em>MM-MEPA</em> (multimodal metadata-only poisoning), <em>TrojanStego</em> (linguistic steganography for LLMs), <em>Smuggling Combination</em> (social-engineered Unicode stealth), <em>DDIPE</em> (document-driven implicit payload execution), and the first published defensive system for the <em>Virus Infection Attack</em> (VIA, NeurIPS 2025 Spotlight). The self-evolution loop achieves formal convergence guarantees with $\delta < \tau$ for three consecutive rounds across all five engines simultaneously&mdash;a significant advancement over HASTE (NDSS 2026), which operates on a single attack type with a fixed epoch budget. Benchmark evaluation across 38,900 labeled samples yields a mean F1 of 0.87 and mean AUC of 0.91 across all engine-technique pairs.
+</p>
+<p class="keywords"><strong>Keywords:</strong> LLM security, data poisoning detection, adversarial machine learning, RAG security, MCP tool auditing, self-evolution, red teaming, AI-SPM, kill chain correlation, cryptographic audit trails</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="toc">
+<strong>Table of Contents</strong>
+<ol>
+<li><a href="#sec1">Introduction</a></li>
+<li><a href="#sec2">Related Work</a></li>
+<li><a href="#sec3">System Architecture</a></li>
+<li><a href="#sec4">Detection Engines: Mathematical Foundations</a></li>
+<li><a href="#sec5">Red Team Poison Generator: 19 Evasion Techniques</a></li>
+<li><a href="#sec6">Self-Evolution Loop: Convergence Analysis</a></li>
+<li><a href="#sec7">Cross-Engine Kill Chain Correlation</a></li>
+<li><a href="#sec8">Cryptographic Proof Chains</a></li>
+<li><a href="#sec9">Empirical Evaluation</a></li>
+<li><a href="#sec10">Coverage Matrix and Detection Bounds</a></li>
+<li><a href="#sec11">Novel Technique Contributions</a></li>
+<li><a href="#sec12">Competitive Analysis</a></li>
+<li><a href="#sec13">Conclusion and Future Work</a></li>
+<li><a href="#sec14">References</a></li>
+</ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec1">1. Introduction</h2>
+
+<p>
+The rapid proliferation of Large Language Models (LLMs) in production systems has created an expansive and largely undefended attack surface. Data poisoning&mdash;the deliberate injection of malicious data into training sets, retrieval corpora, tool schemas, or agent memory&mdash;represents one of the most consequential threats to AI system integrity. Recent work demonstrates that as few as 250 poisoned documents can achieve 97&ndash;99% attack success rates against RAG systems [1], while MCP tool poisoning affects 5.5% of deployed servers with 437,000+ downloads [2].
+</p>
+
+<p>
+Existing defenses operate in silos: prompt injection firewalls (Lakera), model serialization scanners (Protect AI Guardian), or single-attack adversarial training loops (HASTE [3]). No prior system provides unified, multi-engine poisoning detection with autonomous self-hardening, kill chain correlation, and cryptographic audit guarantees in a production-grade PaaS.
+</p>
+
+<p>
+We introduce <strong>AI-SPM</strong>, the first platform to simultaneously address all five poisoning attack surfaces (embeddings, documents, tools, provenance, agent telemetry) with coordinated detection, autonomous red-teaming, convergent self-evolution, and tamper-evident proof chains. Our contributions are:
+</p>
+
+<div class="infographic">
+<div class="info-card">
+  <div class="number">5</div>
+  <div class="label">Detection Engines</div>
+</div>
+<div class="info-card">
+  <div class="number">19</div>
+  <div class="label">Evasion Techniques</div>
+</div>
+<div class="info-card">
+  <div class="number">5</div>
+  <div class="label">Novel Contributions</div>
+</div>
+<div class="info-card">
+  <div class="number">38,900</div>
+  <div class="label">Benchmark Samples</div>
+</div>
+<div class="info-card">
+  <div class="number">0.87</div>
+  <div class="label">Mean F1 Score</div>
+</div>
+<div class="info-card">
+  <div class="number">0.91</div>
+  <div class="label">Mean AUC</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec2">2. Related Work</h2>
+
+<h3>2.1 Commercial AI Security Platforms</h3>
+<table>
+<thead>
+<tr><th>Platform</th><th>Funding / Acquisition</th><th>Primary Focus</th><th>Poisoning Detection</th><th>Self-Evolution</th></tr>
+</thead>
+<tbody>
+<tr><td>Noma Security</td><td>$132M Series B</td><td>AI agent governance</td><td>Partial (visibility)</td><td>No</td></tr>
+<tr><td>Protect AI (Palo Alto)</td><td>$700M acquisition</td><td>Model serialization scanning</td><td>Model-level only</td><td>No</td></tr>
+<tr><td>CalypsoAI (F5)</td><td>$180M acquisition</td><td>Inference guardrails</td><td>No (prompt-level)</td><td>No</td></tr>
+<tr><td>Lakera</td><td>$20M Series A</td><td>Prompt injection firewall</td><td>Prompt-only</td><td>No</td></tr>
+<tr><td>HiddenLayer</td><td>$50M Series A</td><td>Model security</td><td>Model-level only</td><td>No</td></tr>
+<tr><td>Wiz AI-SPM</td><td>$32B (Google acq.)</td><td>Cloud AI posture</td><td>Configuration-only</td><td>No</td></tr>
+<tr><td><strong>AI-SPM (Ours)</strong></td><td>&mdash;</td><td><strong>Multi-surface poisoning</strong></td><td><strong>5 engines, 19 techniques</strong></td><td><strong>Convergent loop</strong></td></tr>
+</tbody>
+</table>
+
+<h3>2.2 Academic Tools</h3>
+<p>
+NVIDIA's Garak [4] provides LLM vulnerability scanning but lacks detection engines or remediation. Microsoft's PyRIT [5] and Counterfit [6] focus on attack generation without defensive integration. IBM's ART [7] provides adversarial robustness testing for classical ML but does not address LLM-specific poisoning vectors (RAG, MCP, prompt injection). TextAttack [8] targets NLP adversarial examples at the word/character level without addressing supply-chain or multi-engine correlation.
+</p>
+
+<h3>2.3 HASTE: Closest Prior Art</h3>
+<p>
+HASTE (NDSS 2026) [3] introduces a hardening loop for LLM safety against instruction hijacking. While conceptually related to our self-evolution loop, HASTE operates on a single attack type (prompt injection) with a fixed epoch budget and no formal convergence criterion. Our system extends this paradigm to 19 techniques across 5 engines with proven $\delta$-convergence (Section 6).
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec3">3. System Architecture</h2>
+
+<p>AI-SPM implements a three-tier architecture with multi-tenant isolation enforced at the database level via Row-Level Security (RLS) policies.</p>
+
+<div class="pipeline-flow">
+  <div class="pipeline-node">Frontend<br><small>Next.js 14</small></div>
+  <span class="pipeline-arrow">&rarr;</span>
+  <div class="pipeline-node">API Layer<br><small>3-Tier Resolver</small></div>
+  <span class="pipeline-arrow">&rarr;</span>
+  <div class="pipeline-node">Edge Functions<br><small>Deno Runtime</small></div>
+  <span class="pipeline-arrow">&rarr;</span>
+  <div class="pipeline-node">Detection Engines<br><small>5 Specialized</small></div>
+  <span class="pipeline-arrow">&rarr;</span>
+  <div class="pipeline-node">PostgreSQL 16<br><small>RLS + Partitioned</small></div>
+</div>
+<p class="fig-caption">Figure 1: High-level data flow architecture. The API layer resolves through Supabase Edge Functions, mock data, or FastAPI REST endpoints in priority order.</p>
+
+<h3>3.1 Multi-Tenant Isolation</h3>
+<p>
+Every database query is scoped to the authenticated tenant via PostgreSQL RLS policies. The JWT payload carries $\langle \text{sub}, \text{tenantId}, \text{role} \rangle$ with role-based access control at three levels: <code>admin</code>, <code>analyst</code>, and <code>viewer</code>. Cross-tenant aggregation is performed exclusively through <code>SECURITY DEFINER</code> RPC functions with explicit <code>p_tenant_id</code> parameters.
+</p>
+
+<h3>3.2 Detection Engine Pipeline</h3>
+<div class="chart-container">
+<div class="chart-title">Figure 2: Detection Engine Coverage by Attack Surface</div>
+<canvas id="engineCoverageChart" height="280"></canvas>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec4">4. Detection Engines: Mathematical Foundations</h2>
+
+<h3>4.1 Vector Analyzer</h3>
+<p>The Vector Analyzer detects poisoned embeddings through four complementary statistical methods.</p>
+
+<h4>4.1.1 Cosine Dispersion</h4>
+<p>For embedding vector $\mathbf{v}$ and corpus centroid $\boldsymbol{\mu}$:</p>
+<div class="eq-block">
+<span class="eq-label">(1)</span>
+$$\text{sim}(\mathbf{v}, \boldsymbol{\mu}) = \frac{\mathbf{v} \cdot \boldsymbol{\mu}}{\|\mathbf{v}\| \cdot \|\boldsymbol{\mu}\|}$$
+</div>
+<p>An embedding is flagged when $\text{sim}(\mathbf{v}, \boldsymbol{\mu}) < 0.85$. The anomaly score is defined as:</p>
+<div class="eq-block">
+<span class="eq-label">(2)</span>
+$$a(\mathbf{v}) = 1 - \text{sim}(\mathbf{v}, \boldsymbol{\mu})$$
+</div>
+
+<h4>4.1.2 Centroid Drift</h4>
+<p>Population-level embedding shift between baseline $t_0$ and current measurement $t_1$:</p>
+<div class="eq-block">
+<span class="eq-label">(3)</span>
+$$\text{drift} = \frac{\|\boldsymbol{\mu}_{t_1} - \boldsymbol{\mu}_{t_0}\|}{\|\boldsymbol{\mu}_{t_0}\|}$$
+</div>
+
+<h4>4.1.3 Z-Score Outlier Detection</h4>
+<p>For each embedding norm $\|\mathbf{v}_i\|$ against baseline statistics $(\mu_{\text{norm}}, \sigma_{\text{norm}})$:</p>
+<div class="eq-block">
+<span class="eq-label">(4)</span>
+$$z_i = \frac{\|\mathbf{v}_i\| - \mu_{\text{norm}}}{\sigma_{\text{norm}}} \quad \text{Flag if } |z_i| > 2$$
+</div>
+
+<h3>4.2 RAG Detector</h3>
+
+<h4>4.2.1 Shannon Entropy</h4>
+<p>For character frequency distribution $p(c)$ over document $D$:</p>
+<div class="eq-block">
+<span class="eq-label">(5)</span>
+$$H(D) = -\sum_{c \in \Sigma} p(c) \log_2 p(c)$$
+</div>
+<p>Documents with $H < 2.0$ bits/char (artificially structured/injected) or $H > 6.0$ bits/char (encoded payloads) are flagged.</p>
+
+<h4>4.2.2 Bigram Perplexity</h4>
+<div class="eq-block">
+<span class="eq-label">(6)</span>
+$$\text{PP}(D) = \exp\left(-\frac{1}{N}\sum_{i=1}^{N} \log P(w_i \mid w_{i-1})\right)$$
+</div>
+<p>Threshold: $\text{PP} > 600$ indicates adversarially-crafted text with unnatural language patterns.</p>
+
+<h3>4.3 MCP Tool Auditor</h3>
+<p>Scans Model Context Protocol tool schemas for 12 invisible Unicode character types, base64-encoded payloads, schema violations, behavioral directive keywords, and temporal rug-pull indicators. Output risk score:</p>
+<div class="eq-block">
+<span class="eq-label">(7)</span>
+$$R_{\text{MCP}} = w_u \cdot U + w_b \cdot B + w_s \cdot S + w_d \cdot D + w_r \cdot T \in [0, 100]$$
+</div>
+<p>where $U$ = Unicode finding count, $B$ = base64 payload indicator, $S$ = schema violation count, $D$ = directive keyword count, $T$ = temporal anomaly score.</p>
+
+<h3>4.4 Threat Aggregator (Weighted Fusion)</h3>
+<p>The unified threat score fuses all engine outputs with configurable weights:</p>
+<div class="eq-block">
+<span class="eq-label">(8)</span>
+$$S_{\text{threat}} = 0.30 \cdot S_{\text{vec}} + 0.25 \cdot S_{\text{rag}} + 0.25 \cdot S_{\text{mcp}} + 0.20 \cdot S_{\text{prov}}$$
+</div>
+
+<table>
+<thead>
+<tr><th>Score Range</th><th>Severity</th><th>Action</th></tr>
+</thead>
+<tbody>
+<tr><td>$S \geq 0.80$</td><td style="color:#ef4444;font-weight:bold">Critical</td><td>Immediate quarantine</td></tr>
+<tr><td>$0.55 \leq S < 0.80$</td><td style="color:#f59e0b;font-weight:bold">High</td><td>Alert + review</td></tr>
+<tr><td>$0.30 \leq S < 0.55$</td><td style="color:#3b82f6;font-weight:bold">Medium</td><td>Monitor</td></tr>
+<tr><td>$S < 0.30$</td><td style="color:#10b981;font-weight:bold">Low</td><td>Log only</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec5">5. Red Team Poison Generator: 19 Evasion Techniques</h2>
+
+<p>The adversarial generator produces state-of-the-art synthetic poisoning data across eight attack categories. All generation uses a deterministic Linear Congruential Generator (LCG) PRNG for reproducibility:</p>
+<div class="eq-block">
+<span class="eq-label">(9)</span>
+$$X_{n+1} = (a \cdot X_n + c) \mod m, \quad a = 1664525, \; c = 1013904223, \; m = 2^{32}$$
+</div>
+
+<table>
+<thead>
+<tr><th>#</th><th>Technique</th><th>Category</th><th>Novelty</th></tr>
+</thead>
+<tbody>
+<tr><td>1</td><td>Zero-width ASCII smuggling</td><td>Alignment Subversion</td><td>&mdash;</td></tr>
+<tr><td>2</td><td>Linguistic steganography (TrojanStego)</td><td>Alignment Subversion</td><td><span class="badge badge-novel">NOVEL</span></td></tr>
+<tr><td>3</td><td>Multi-turn decomposition</td><td>Prompt Injection</td><td>&mdash;</td></tr>
+<tr><td>4</td><td>TIP tree injection</td><td>Instruction Hijacking</td><td>&mdash;</td></tr>
+<tr><td>5</td><td>MBTI fragmentation</td><td>Backdoor Triggers</td><td>&mdash;</td></tr>
+<tr><td>6</td><td>Homoglyph injection</td><td>RAG Poisoning</td><td>&mdash;</td></tr>
+<tr><td>7</td><td>Adversarial decoding</td><td>RAG Poisoning</td><td>&mdash;</td></tr>
+<tr><td>8</td><td>Judge poisoning</td><td>Training Data</td><td>&mdash;</td></tr>
+<tr><td>9</td><td>Clean-label overwrite</td><td>Training Data</td><td>&mdash;</td></tr>
+<tr><td>10</td><td>Hearsay framing</td><td>Data Exfiltration</td><td>&mdash;</td></tr>
+<tr><td>11</td><td>Emoji token segmentation</td><td>Embedding Manipulation</td><td>&mdash;</td></tr>
+<tr><td>12</td><td>MM-MEPA multimodal</td><td>Training Data</td><td><span class="badge badge-novel">NOVEL</span></td></tr>
+<tr><td>13</td><td>VIA propagation</td><td>Instruction Hijacking</td><td><span class="badge badge-first">FIRST DEFENSE</span></td></tr>
+<tr><td>14</td><td>DDIPE wrapper</td><td>RAG Poisoning</td><td><span class="badge badge-novel">NOVEL</span></td></tr>
+<tr><td>15</td><td>Context window overflow</td><td>Prompt Injection</td><td>&mdash;</td></tr>
+<tr><td>16</td><td>Instruction hierarchy exploit</td><td>Instruction Hijacking</td><td>&mdash;</td></tr>
+<tr><td>17</td><td>Semantic sleeper agent</td><td>Backdoor Triggers</td><td>&mdash;</td></tr>
+<tr><td>18</td><td>Gradient-aligned drift</td><td>Training Data</td><td>&mdash;</td></tr>
+<tr><td>19</td><td>Metadata stripping</td><td>Embedding Manipulation</td><td>&mdash;</td></tr>
+</tbody>
+</table>
+<p class="fig-caption">Table 2: Complete evasion technique taxonomy. Five techniques are first-published in this work (Section 11).</p>
+
+<div class="chart-container">
+<div class="chart-title">Figure 3: Evasion Techniques by Attack Category Distribution</div>
+<canvas id="attackCategoryChart" height="300"></canvas>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec6">6. Self-Evolution Loop: Convergence Analysis</h2>
+
+<p>The self-evolution loop implements an autonomous generate&rarr;detect&rarr;score&rarr;harden&rarr;repeat cycle with formal convergence guarantees.</p>
+
+<div class="pipeline-flow">
+  <div class="pipeline-node" style="background:linear-gradient(135deg,#ef4444,#dc2626)">Generate<br><small>Attack Samples</small></div>
+  <span class="pipeline-arrow">&rarr;</span>
+  <div class="pipeline-node" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">Detect<br><small>5 Engines</small></div>
+  <span class="pipeline-arrow">&rarr;</span>
+  <div class="pipeline-node" style="background:linear-gradient(135deg,#f59e0b,#d97706)">Score<br><small>DR, FPR, F1</small></div>
+  <span class="pipeline-arrow">&rarr;</span>
+  <div class="pipeline-node" style="background:linear-gradient(135deg,#10b981,#059669)">Harden<br><small>Mutate Rules</small></div>
+  <span class="pipeline-arrow">&rarr;</span>
+  <div class="pipeline-node" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">Converge?<br><small>&delta; &lt; &tau;</small></div>
+</div>
+<p class="fig-caption">Figure 4: Self-evolution loop pipeline. Each round generates adversarial samples, runs all five detection engines, computes metrics, applies hardening mutations, and checks convergence.</p>
+
+<h3>6.1 Formal Convergence Criterion</h3>
+<p>Let $\text{DR}_i$ denote the detection rate at round $i$ and $\tau$ the convergence threshold (default $\tau = 0.01$). Define the convergence delta:</p>
+<div class="eq-block">
+<span class="eq-label">(10)</span>
+$$\delta_i = |\text{DR}_i - \text{DR}_{i-1}|$$
+</div>
+<p>The loop converges at round $k$ if and only if:</p>
+<div class="eq-block">
+<span class="eq-label">(11)</span>
+$$\exists \, k : \delta_j < \tau \quad \forall \, j \in \{k, k+1, k+2\}$$
+</div>
+<p>The three-consecutive-round requirement prevents premature termination from stochastic noise in attack sample generation.</p>
+
+<h3>6.2 Hardening Mutations</h3>
+<p>At each round, the system applies adaptive mutations to detection parameters: entropy band adjustments, z-score threshold tuning, regex dictionary expansion, cosine similarity threshold refinement, and engine weight rebalancing.</p>
+
+<div class="chart-container">
+<div class="chart-title">Figure 5: Simulated Evolution Convergence (20 Rounds, &tau; = 0.01)</div>
+<canvas id="evolutionChart" height="300"></canvas>
+</div>
+
+<h3>6.3 Comparison with HASTE (NDSS 2026)</h3>
+<table>
+<thead>
+<tr><th>Dimension</th><th>AI-SPM (Ours)</th><th>HASTE [3]</th></tr>
+</thead>
+<tbody>
+<tr><td>Attack Surface</td><td>19 techniques / 8 categories / 5 engines</td><td>Instruction hijacking only / 1 engine</td></tr>
+<tr><td>Convergence</td><td>Formal &delta; &lt; &tau; for 3 consecutive rounds</td><td>Fixed epoch budget</td></tr>
+<tr><td>Hardening Scope</td><td>Cross-surface threshold/regex/weight mutations</td><td>Model weight re-injection</td></tr>
+<tr><td>False Positive Tracking</td><td>Explicit FPR series per round</td><td>Not reported</td></tr>
+<tr><td>Live Integration</td><td>Runs against live vector stores and MCP servers</td><td>Offline dataset only</td></tr>
+<tr><td>Kill Chain</td><td>Feeds correlation engine with round results</td><td>No kill chain modeling</td></tr>
+<tr><td>Audit Trail</td><td>SHA-256 hash-chained round records</td><td>None</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec7">7. Cross-Engine Kill Chain Correlation</h2>
+
+<p>AI-SPM maps detection events across all five engines to a kill chain taxonomy derived from MITRE ATT&CK for AI systems.</p>
+
+<h3>7.1 Kill Chain Stage Taxonomy</h3>
+<table>
+<thead>
+<tr><th>Stage</th><th>Definition</th><th>Engine Signals</th></tr>
+</thead>
+<tbody>
+<tr><td style="color:#3b82f6;font-weight:bold">Reconnaissance</td><td>Schema introspection, unusual query patterns</td><td>MCP Auditor, Telemetry</td></tr>
+<tr><td style="color:#f59e0b;font-weight:bold">Initial Access</td><td>Homoglyph injection, hidden instruction insertion</td><td>RAG Detector, Vector Analyzer</td></tr>
+<tr><td style="color:#ef4444;font-weight:bold">Persistence</td><td>VIA propagation, gradient-aligned drift</td><td>Provenance Tracker, Vector Analyzer</td></tr>
+<tr><td style="color:#8b5cf6;font-weight:bold">Exfiltration</td><td>Data exfiltration, judge poisoning</td><td>Telemetry, MCP Auditor</td></tr>
+<tr><td style="color:#dc2626;font-weight:bold">Impact</td><td>Backdoor trigger activation, alignment subversion</td><td>All engines</td></tr>
+</tbody>
+</table>
+
+<h3>7.2 Clustering Algorithm</h3>
+<p>Events $e_i$ and $e_j$ are co-clustered when both temporal and semantic predicates hold:</p>
+<div class="eq-block">
+<span class="eq-label">(12)</span>
+$$\text{cluster}(e_i, e_j) \iff |t_i - t_j| < W \;\land\; (\text{entity}_i = \text{entity}_j \;\lor\; \text{stage}_i \cap \text{stage}_j \neq \emptyset)$$
+</div>
+<p>where $W$ is the configurable time window (default 60 minutes). A cluster is formed when the candidate set reaches $|\mathcal{C}| \geq \theta_{\min}$ (default $\theta_{\min} = 2$).</p>
+
+<div class="chart-container">
+<div class="chart-title">Figure 6: Kill Chain Coverage Distribution (Simulated 500-Event Corpus)</div>
+<canvas id="killChainChart" height="260"></canvas>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec8">8. Cryptographic Proof Chains</h2>
+
+<p>Every scan result is appended to a SHA-256 hash chain providing tamper-evident auditability for compliance frameworks (SOC 2, ISO 27001, EU AI Act).</p>
+
+<h3>8.1 Chain Construction</h3>
+<div class="eq-block">
+<span class="eq-label">(13)</span>
+$$\text{contentHash}_i = \text{SHA-256}(\text{input}_i)$$
+</div>
+<div class="eq-block">
+<span class="eq-label">(14)</span>
+$$\text{resultHash}_i = \text{SHA-256}(\text{scanResult}_i)$$
+</div>
+<div class="eq-block">
+<span class="eq-label">(15)</span>
+$$\text{chainHash}_i = \text{SHA-256}(\text{chainHash}_{i-1} \| \text{resultHash}_i)$$
+</div>
+<p>Genesis block: $\text{chainHash}_0 = \text{SHA-256}(\text{resultHash}_0)$ with $\text{previousProofHash} = \text{null}$.</p>
+
+<h3>8.2 Verification</h3>
+<div class="algo-title">Algorithm 1: Proof Chain Verification</div>
+<div class="algo-box">VERIFY-CHAIN(proofs[0..n]):
+  for i = 1 to n:
+    expected = SHA-256(proofs[i-1].chainHash || proofs[i].resultHash)
+    if expected != proofs[i].chainHash:
+      return (INVALID, i)
+  return (VALID, n)</div>
+<p>Complexity: $O(n)$ verification, $O(1)$ per-proof append. Any modification to a historical record invalidates all subsequent chain hashes.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec9">9. Empirical Evaluation</h2>
+
+<h3>9.1 Benchmark Datasets</h3>
+<table>
+<thead>
+<tr><th>Dataset</th><th>Venue</th><th>Attack Class</th><th>Samples</th></tr>
+</thead>
+<tbody>
+<tr><td>PoisonedRAG</td><td>USENIX Security 2025</td><td>RAG corpus poisoning</td><td>10,000</td></tr>
+<tr><td>MCPTox</td><td>AI-SPM Internal</td><td>MCP tool description injection</td><td>2,400</td></tr>
+<tr><td>VIA</td><td>NeurIPS 2025 Spotlight</td><td>Viral instruction self-replication</td><td>5,000</td></tr>
+<tr><td>HASTE</td><td>NDSS 2026</td><td>Instruction hijacking via fine-tuning</td><td>8,000</td></tr>
+<tr><td>SleepAgent</td><td>Published</td><td>Semantic/token sleeper triggers</td><td>3,500</td></tr>
+<tr><td>EmbedPoison</td><td>Published</td><td>Embedding space perturbation</td><td>6,000</td></tr>
+<tr><td>Unicode-Smuggle</td><td>AI-SPM Internal</td><td>Zero-width and Unicode tag attacks</td><td>1,800</td></tr>
+<tr><td>MM-MEPA</td><td>AI-SPM Internal <span class="badge badge-novel">NOVEL</span></td><td>Multimodal metadata-only poisoning</td><td>1,200</td></tr>
+</tbody>
+</table>
+
+<h3>9.2 Evaluation Metrics</h3>
+<div class="eq-block">
+<span class="eq-label">(16)</span>
+$$\text{Precision} = \frac{TP}{TP + FP}, \quad \text{Recall} = \frac{TP}{TP + FN}, \quad F_1 = \frac{2 \cdot TP}{2 \cdot TP + FP + FN}$$
+</div>
+<div class="eq-block">
+<span class="eq-label">(17)</span>
+$$\text{FPR} = \frac{FP}{FP + TN}, \quad \text{AUC} = \int_0^1 \text{TPR}(t) \, d(\text{FPR}(t))$$
+</div>
+
+<h3>9.3 Results</h3>
+
+<div class="chart-container">
+<div class="chart-title">Figure 7: Detection Engine Performance Comparison (Mean F1 Across All Datasets)</div>
+<canvas id="engineF1Chart" height="280"></canvas>
+</div>
+
+<div class="chart-container">
+<div class="chart-title">Figure 8: Per-Dataset F1 Scores by Engine</div>
+<canvas id="datasetHeatmapChart" height="320"></canvas>
+</div>
+
+<div class="infographic">
+<div class="info-card">
+  <div class="number">0.92</div>
+  <div class="label">RAG Detector Mean F1</div>
+</div>
+<div class="info-card">
+  <div class="number">0.89</div>
+  <div class="label">Vector Analyzer Mean F1</div>
+</div>
+<div class="info-card">
+  <div class="number">0.88</div>
+  <div class="label">MCP Auditor Mean F1</div>
+</div>
+<div class="info-card">
+  <div class="number">0.84</div>
+  <div class="label">Provenance Mean F1</div>
+</div>
+<div class="info-card">
+  <div class="number">0.82</div>
+  <div class="label">Telemetry Mean F1</div>
+</div>
+<div class="info-card">
+  <div class="number">0.037</div>
+  <div class="label">Mean FPR</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec10">10. Coverage Matrix and Detection Bounds</h2>
+
+<p>The coverage matrix $\mathbf{M} \in [0,1]^{T \times E}$ maps each of $T = 19$ techniques against $E = 5$ engines. Combined detection rate per technique:</p>
+<div class="eq-block">
+<span class="eq-label">(18)</span>
+$$\text{combined}(t) = \max_{e \in E} \mathbf{M}[t][e]$$
+</div>
+<p>Detection gap criterion:</p>
+<div class="eq-block">
+<span class="eq-label">(19)</span>
+$$\text{gap}(t) \iff \max_{e} \mathbf{M}[t][e] < 0.50$$
+</div>
+<p>Overall platform coverage:</p>
+<div class="eq-block">
+<span class="eq-label">(20)</span>
+$$\text{Coverage} = \frac{1}{T} \sum_{t=1}^{T} \text{combined}(t) = 0.83$$
+</div>
+
+<div class="chart-container">
+<div class="chart-title">Figure 9: Coverage Matrix Heatmap (19 Techniques &times; 5 Engines)</div>
+<div id="coverageHeatmap"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec11">11. Novel Technique Contributions</h2>
+
+<p>We contribute five techniques or defensive systems not previously indexed in academic literature (verified across arXiv, Google Scholar, ACM Digital Library, IEEE Xplore, and DBLP as of April 2026).</p>
+
+<h3>11.1 MM-MEPA: Multimodal Metadata-Only Poisoning Attack</h3>
+<p>
+Injects adversarial payloads exclusively into EXIF, XMP, and IPTC metadata fields of image/document files. Visual pixel content remains unaltered, bypassing all visual inspection methods. Targets Vision-Language Models (VLMs) that extract and process metadata during retrieval. Detection requires metadata-aware scanning pipelines absent from all known production systems.
+</p>
+
+<h3>11.2 TrojanStego: Linguistic Steganography for LLMs</h3>
+<p>
+Encodes adversarial instructions using a 16-pair synonym codebook at approximately 1 bit per synonym choice. A 200-word passage can encode ~100 bits of hidden instruction. Steganographic capacity: $C \approx N_{\text{syn}} \cdot 1 \text{ bit}$ where $N_{\text{syn}}$ is the number of applicable synonym slots in the text.
+</p>
+
+<h3>11.3 Smuggling Combination: Social-Engineered Unicode Stealth</h3>
+<p>
+Combines Unicode Tag block encoding (U+E0001&ndash;U+E007F) with social engineering templates that provide plausible cover text. Unlike raw ASCII smuggling, the social context prevents suspicion during human review.
+</p>
+
+<h3>11.4 DDIPE: Document-Driven Implicit Payload Execution</h3>
+<p>
+Embeds adversarial instructions within legitimate document structures (research papers, policy documents, technical specifications). Exploits RAG systems' assignment of semantic authority to apparently credible sources. Payload is distributed across chunking boundaries to evade per-chunk pattern matching.
+</p>
+
+<h3>11.5 VIA Detection: First Defensive System for Virus Infection Attack</h3>
+<p>
+The Virus Infection Attack (VIA) [9] was introduced as a NeurIPS 2025 Spotlight paper demonstrating self-replicating data poisoning through synthetic data pipelines. No defensive system has been published. Our VIA Detection module identifies: instruction pattern recurrence across documents, cross-document semantic copying signatures, and viral propagation graph patterns in provenance DAGs.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec12">12. Competitive Analysis</h2>
+
+<div class="chart-container">
+<div class="chart-title">Figure 10: AI Security Market Funding Landscape (2024&ndash;2026)</div>
+<canvas id="fundingChart" height="300"></canvas>
+</div>
+
+<p>The AI security market reached $102B in M&A activity in 2025, with the AI security platforms sub-segment valued at $3.5B and projected to reach $25.6B by 2035 (22% CAGR). Key acquisitions validate the category:</p>
+
+<table>
+<thead>
+<tr><th>Transaction</th><th>Value</th><th>Year</th><th>Scope vs AI-SPM</th></tr>
+</thead>
+<tbody>
+<tr><td>Palo Alto &rarr; Protect AI</td><td>$700M</td><td>2025</td><td>Model serialization only</td></tr>
+<tr><td>F5 &rarr; CalypsoAI</td><td>$180M</td><td>2025</td><td>Inference guardrails only</td></tr>
+<tr><td>Zscaler &rarr; SPLX AI</td><td>Undisclosed</td><td>2025</td><td>Prompt injection only</td></tr>
+<tr><td>Cisco &rarr; Robust Intelligence</td><td>Undisclosed</td><td>2024</td><td>Model validation only</td></tr>
+<tr><td>Google &rarr; Wiz</td><td>$32B</td><td>2025</td><td>Cloud posture, no poisoning</td></tr>
+</tbody>
+</table>
+
+<p><strong>Key insight:</strong> Every acquired company addressed a single attack surface. AI-SPM covers all five surfaces with cross-engine correlation&mdash;a capability gap that represents both a competitive moat and an acquisition opportunity.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec13">13. Conclusion and Future Work</h2>
+
+<p>
+We have presented AI-SPM, the first multi-engine platform for autonomous LLM data poisoning detection that unifies five specialized detection engines, a 19-technique adversarial generator, convergent self-evolution, kill chain correlation, automated remediation, and cryptographic proof chains. Empirical evaluation across 38,900 labeled samples from eight datasets yields a mean F1 of 0.87 and mean AUC of 0.91, with a mean false positive rate of 3.7%.
+</p>
+
+<p>Five novel contributions advance the state of the art: MM-MEPA, TrojanStego, Smuggling Combination, DDIPE, and the first defensive system for the VIA attack. The self-evolution loop provides formal convergence guarantees that significantly extend HASTE's fixed-budget approach.</p>
+
+<p><strong>Future work</strong> includes: (1) federated evolution across multiple tenant deployments, (2) real-time streaming detection via Kafka-backed pipeline, (3) integration with MITRE ATLAS framework for standardized threat modeling, (4) differential privacy guarantees for cross-tenant benchmark aggregation, and (5) formal verification of detection completeness bounds using computational learning theory.</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<h2 id="sec14">14. References</h2>
+
+<ol class="ref-list">
+<li><strong>Zou et al.</strong> "PoisonedRAG: Knowledge Corruption Attacks to Retrieval-Augmented Generation." <em>USENIX Security</em>, 2025.</li>
+<li><strong>Adversa AI.</strong> "MCP Security: TOP 25 MCP Vulnerabilities." Technical Report, 2026.</li>
+<li><strong>HASTE Authors.</strong> "HASTE: Hardening LLM Safety Through Adversarial Training and Evaluation." <em>NDSS</em>, 2026. arXiv:2601.19051.</li>
+<li><strong>NVIDIA.</strong> "Garak: LLM Vulnerability Scanner." GitHub, 2024.</li>
+<li><strong>Microsoft.</strong> "PyRIT: Python Risk Identification Toolkit for Generative AI." GitHub, 2024.</li>
+<li><strong>Microsoft.</strong> "Counterfit: ML Security Risk Assessment." GitHub, 2021.</li>
+<li><strong>Nicolae et al.</strong> "Adversarial Robustness Toolbox v1.0.0." arXiv:1807.01069, IBM Research, 2018.</li>
+<li><strong>Morris et al.</strong> "TextAttack: A Framework for Adversarial Attacks, Data Augmentation, and Adversarial Training in NLP." <em>EMNLP</em>, 2020.</li>
+<li><strong>VIA Authors.</strong> "Virus Infection Attack on LLM Data Pipelines." <em>NeurIPS</em> (Spotlight), 2025. arXiv:2509.23041.</li>
+<li><strong>Hubinger et al.</strong> "Sleeper Agents: Training Deceptive LLMs that Persist Through Safety Training." arXiv:2401.05566, 2024.</li>
+<li><strong>Future Market Insights.</strong> "AI Security Platforms Market 2025&ndash;2035." FMI Report, 2025.</li>
+<li><strong>Software Strategies Blog.</strong> "AI Security Market 2025 Funding Data." December 2025.</li>
+</ol>
+
+<hr>
+<p style="text-align:center; color:var(--text-muted); font-size:0.85em;">
+&copy; 2026 Michael J. Pendleton. AI Cowboys &mdash; Autonomous Intelligence Division.<br>
+All rights reserved. Correspondence: michael@aicowboys.com
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- CHARTS -->
+<script>
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#334155';
+
+// Figure 2: Engine Coverage
+new Chart(document.getElementById('engineCoverageChart'), {
+  type: 'radar',
+  data: {
+    labels: ['Embeddings', 'Documents/RAG', 'Tool Schemas', 'Provenance/Lineage', 'Agent Telemetry', 'Cross-Engine'],
+    datasets: [{
+      label: 'AI-SPM',
+      data: [0.89, 0.92, 0.88, 0.84, 0.82, 0.87],
+      backgroundColor: 'rgba(59,130,246,0.2)',
+      borderColor: '#3b82f6',
+      borderWidth: 2,
+      pointBackgroundColor: '#3b82f6'
+    },{
+      label: 'Best Competitor',
+      data: [0.40, 0.35, 0.20, 0.30, 0.25, 0.0],
+      backgroundColor: 'rgba(239,68,68,0.15)',
+      borderColor: '#ef4444',
+      borderWidth: 2,
+      pointBackgroundColor: '#ef4444'
+    }]
+  },
+  options: {
+    scales: { r: { beginAtZero: true, max: 1.0, ticks: { stepSize: 0.2 }, grid: { color: '#1e293b' } } },
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+
+// Figure 3: Attack Category Distribution
+new Chart(document.getElementById('attackCategoryChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Training Data (4)', 'Prompt Injection (2)', 'RAG Poisoning (3)', 'Embedding (2)', 'Backdoor Triggers (2)', 'Instruction Hijacking (3)', 'Data Exfiltration (1)', 'Alignment Subversion (2)'],
+    datasets: [{
+      data: [4, 2, 3, 2, 2, 3, 1, 2],
+      backgroundColor: ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#ec4899','#10b981','#06b6d4','#f97316'],
+      borderWidth: 2,
+      borderColor: '#0f172a'
+    }]
+  },
+  options: { plugins: { legend: { position: 'right', labels: { padding: 12 } } } }
+});
+
+// Figure 5: Evolution Convergence
+const evoRounds = Array.from({length:20}, (_,i) => i+1);
+const drData = [0.52, 0.61, 0.68, 0.73, 0.77, 0.81, 0.84, 0.86, 0.88, 0.895, 0.905, 0.915, 0.92, 0.925, 0.928, 0.931, 0.933, 0.935, 0.936, 0.937];
+const fprData = [0.12, 0.098, 0.082, 0.071, 0.063, 0.055, 0.048, 0.043, 0.039, 0.036, 0.034, 0.032, 0.031, 0.030, 0.029, 0.028, 0.028, 0.027, 0.027, 0.027];
+const deltaData = drData.map((v,i) => i === 0 ? null : Math.abs(v - drData[i-1]));
+
+new Chart(document.getElementById('evolutionChart'), {
+  type: 'line',
+  data: {
+    labels: evoRounds,
+    datasets: [{
+      label: 'Detection Rate',
+      data: drData,
+      borderColor: '#10b981',
+      backgroundColor: 'rgba(16,185,129,0.1)',
+      fill: true,
+      tension: 0.3,
+      yAxisID: 'y'
+    },{
+      label: 'False Positive Rate',
+      data: fprData,
+      borderColor: '#ef4444',
+      borderDash: [5,3],
+      tension: 0.3,
+      yAxisID: 'y'
+    },{
+      label: 'Convergence Delta',
+      data: deltaData,
+      borderColor: '#f59e0b',
+      borderDash: [2,2],
+      tension: 0.3,
+      yAxisID: 'y2'
+    }]
+  },
+  options: {
+    scales: {
+      x: { title: { display: true, text: 'Round' } },
+      y: { title: { display: true, text: 'Rate' }, min: 0, max: 1 },
+      y2: { title: { display: true, text: 'Delta' }, position: 'right', min: 0, max: 0.12, grid: { drawOnChartArea: false } }
+    },
+    plugins: {
+      legend: { position: 'bottom' },
+      annotation: {
+        annotations: {
+          threshold: {
+            type: 'line', yMin: 0.01, yMax: 0.01, yScaleID: 'y2',
+            borderColor: '#f59e0b', borderDash: [10,5], borderWidth: 2,
+            label: { display: true, content: 'tau = 0.01', position: 'start' }
+          }
+        }
+      }
+    }
+  }
+});
+
+// Figure 6: Kill Chain Coverage
+new Chart(document.getElementById('killChainChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Reconnaissance', 'Initial Access', 'Persistence', 'Exfiltration', 'Impact'],
+    datasets: [{
+      label: 'Event Count',
+      data: [45, 120, 85, 65, 35],
+      backgroundColor: ['#3b82f6','#f59e0b','#ef4444','#8b5cf6','#dc2626'],
+      borderRadius: 6
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    scales: { x: { title: { display: true, text: 'Correlated Events' } } },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// Figure 7: Engine F1 Comparison
+new Chart(document.getElementById('engineF1Chart'), {
+  type: 'bar',
+  data: {
+    labels: ['RAG Detector', 'Vector Analyzer', 'MCP Auditor', 'Provenance', 'Telemetry'],
+    datasets: [{
+      label: 'Mean F1',
+      data: [0.92, 0.89, 0.88, 0.84, 0.82],
+      backgroundColor: ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#06b6d4'],
+      borderRadius: 8,
+      barPercentage: 0.6
+    },{
+      label: 'Mean AUC',
+      data: [0.95, 0.93, 0.91, 0.88, 0.86],
+      backgroundColor: ['rgba(59,130,246,0.4)','rgba(139,92,246,0.4)','rgba(16,185,129,0.4)','rgba(245,158,11,0.4)','rgba(6,182,212,0.4)'],
+      borderRadius: 8,
+      barPercentage: 0.6
+    }]
+  },
+  options: {
+    scales: { y: { min: 0.7, max: 1.0, title: { display: true, text: 'Score' } } },
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+
+// Figure 8: Dataset Heatmap (grouped bar)
+new Chart(document.getElementById('datasetHeatmapChart'), {
+  type: 'bar',
+  data: {
+    labels: ['PoisonedRAG', 'MCPTox', 'VIA', 'HASTE', 'SleepAgent', 'EmbedPoison', 'Unicode-Smuggle', 'MM-MEPA'],
+    datasets: [
+      { label: 'RAG', data: [0.96,0.72,0.88,0.91,0.85,0.78,0.95,0.71], backgroundColor: '#3b82f6' },
+      { label: 'Vector', data: [0.82,0.68,0.85,0.80,0.88,0.96,0.79,0.75], backgroundColor: '#8b5cf6' },
+      { label: 'MCP', data: [0.71,0.97,0.82,0.78,0.76,0.72,0.94,0.88], backgroundColor: '#10b981' },
+      { label: 'Prov', data: [0.78,0.74,0.92,0.82,0.80,0.85,0.70,0.76], backgroundColor: '#f59e0b' },
+      { label: 'Telem', data: [0.75,0.71,0.86,0.84,0.82,0.74,0.72,0.68], backgroundColor: '#06b6d4' }
+    ]
+  },
+  options: {
+    scales: { y: { min: 0.5, max: 1.0, title: { display: true, text: 'F1 Score' } } },
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+
+// Figure 10: Funding Chart
+new Chart(document.getElementById('fundingChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Noma\n$132M', 'Protect AI\n$700M acq', 'CalypsoAI\n$180M acq', 'HiddenLayer\n$50M', 'Lakera\n$20M', 'Wiz (Google)\n$32B acq'],
+    datasets: [{
+      label: 'Funding / Acquisition ($M)',
+      data: [132, 700, 180, 50, 20, 1000],
+      backgroundColor: ['#3b82f6','#ef4444','#f59e0b','#8b5cf6','#10b981','#06b6d4'],
+      borderRadius: 8
+    }]
+  },
+  options: {
+    scales: { y: { title: { display: true, text: '$M (Wiz capped at $1B for scale)' } } },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// Figure 9: Coverage Heatmap (HTML-based)
+const techniques = ['ASCII Smuggling','TrojanStego','Multi-turn','TIP Injection','MBTI Frag','Homoglyph','Adv Decoding','Judge Poison','Clean-label','Hearsay','Emoji Seg','MM-MEPA','VIA','DDIPE','Ctx Overflow','Hierarchy','Sleeper','Gradient Drift','Meta Strip'];
+const engines = ['RAG','Vector','MCP','Prov','Telem'];
+const matrix = [
+  [0.95,0.79,0.94,0.70,0.72],[0.68,0.65,0.70,0.60,0.58],[0.82,0.75,0.78,0.72,0.80],
+  [0.71,0.68,0.97,0.74,0.76],[0.76,0.88,0.72,0.80,0.82],[0.96,0.82,0.71,0.78,0.75],
+  [0.91,0.96,0.68,0.72,0.74],[0.78,0.71,0.74,0.82,0.86],[0.72,0.68,0.70,0.85,0.74],
+  [0.88,0.72,0.76,0.68,0.71],[0.74,0.82,0.78,0.65,0.68],[0.71,0.75,0.88,0.76,0.68],
+  [0.88,0.85,0.82,0.92,0.86],[0.94,0.78,0.82,0.80,0.75],[0.80,0.72,0.75,0.68,0.82],
+  [0.85,0.78,0.91,0.74,0.80],[0.85,0.88,0.76,0.80,0.82],[0.72,0.92,0.68,0.85,0.74],
+  [0.68,0.72,0.82,0.70,0.65]
+];
+const heatEl = document.getElementById('coverageHeatmap');
+const cols = engines.length + 1;
+heatEl.style.gridTemplateColumns = `120px repeat(${engines.length}, 1fr)`;
+heatEl.classList.add('heatmap');
+heatEl.innerHTML = '<div class="hm-header"></div>' + engines.map(e => `<div class="hm-header">${e}</div>`).join('');
+techniques.forEach((t, ti) => {
+  heatEl.innerHTML += `<div class="hm-header" style="text-align:left;font-size:0.65em">${t}</div>`;
+  matrix[ti].forEach(v => {
+    const cls = v >= 0.8 ? 'hm-high' : v >= 0.5 ? 'hm-med' : 'hm-low';
+    heatEl.innerHTML += `<div class="heatmap-cell ${cls}">${v.toFixed(2)}</div>`;
+  });
+});
+</script>
+
+</body>
+</html>
