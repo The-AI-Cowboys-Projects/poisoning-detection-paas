@@ -11,6 +11,7 @@ A production-grade, multi-tenant SaaS platform for detecting data poisoning atta
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Detection Engines](#detection-engines)
+- [Red Team Poison Generator](#red-team-poison-generator)
 - [Tech Stack](#tech-stack)
 - [Frontend Pages](#frontend-pages)
 - [API Reference](#api-reference)
@@ -26,7 +27,7 @@ A production-grade, multi-tenant SaaS platform for detecting data poisoning atta
 
 ## Overview
 
-LLM data poisoning is the emerging attack surface where adversaries inject malicious data into training sets, retrieval corpora, tool schemas, or agent memory to manipulate model behavior. This platform provides six specialized detection engines that operate across the full ML pipeline:
+LLM data poisoning is the emerging attack surface where adversaries inject malicious data into training sets, retrieval corpora, tool schemas, or agent memory to manipulate model behavior. This platform provides six specialized detection engines plus an autonomous red team generator that operate across the full ML pipeline:
 
 | Engine | Attack Surface | Detection Method |
 |--------|---------------|------------------|
@@ -36,6 +37,7 @@ LLM data poisoning is the emerging attack surface where adversaries inject malic
 | **Provenance Tracker** | Training lineage | DAG contamination propagation, recursive upstream traversal |
 | **Telemetry Simulator** | Agent behavior | Synthetic attack traces, anomaly scoring across 8 attack scenarios |
 | **Threat Aggregator** | Cross-engine | Weighted fusion scoring with configurable engine importance |
+| **Poison Generator** | Red team | AutoBackdoor, DDIPE, VIA simulation, ASCII smuggling, adversarial decoding |
 
 ---
 
@@ -167,6 +169,33 @@ Unified cross-engine threat scoring:
 
 ---
 
+## Red Team Poison Generator
+
+An autonomous adversarial engine for generating state-of-the-art synthetic poisoning data to test and validate LLM/SLM resilience. This internal red team module produces sophisticated sample data across 8 attack categories:
+
+| Category | Technique | Description |
+|----------|-----------|-------------|
+| **Training Data Poisoning** | AutoBackdoor agent pipelines | Malicious instruction-response pairs with gradient-aligned payloads and epoch-targeted drift |
+| **Prompt Injection** | Direct override, context switching | Inputs designed to override system prompts via delimiter attacks, encoded payloads, and role-play |
+| **RAG Document Poisoning** | DDIPE, adversarial decoding | Documents with hidden instructions optimized for cosine similarity maximization during retrieval |
+| **Embedding Manipulation** | Perturbation attacks, cluster drift | Vectors crafted to cluster near targets, misleading similarity search with calibrated cosine drift |
+| **Backdoor Triggers** | Semantic/token triggers | Sleeper agent samples with hidden activation phrases and configurable activation rates |
+| **Instruction Hijacking** | VIA simulation, gradual drift | Fine-tuning data that progressively shifts instruction-following alignment over training epochs |
+| **Data Exfiltration** | Role-play, encoding tricks | Inputs that cause models to leak system prompts, training data, or internal configurations |
+| **Alignment Subversion** | ASCII smuggling, Unicode tags | Subtle samples that erode safety guardrails using invisible Unicode characters and boundary erosion |
+
+### Generator Features
+
+- **4 subtlety levels:** Obvious (easy to detect) → Moderate → Subtle → Stealth (near-undetectable)
+- **7 target model types:** LLM general/chat/instruct, SLM edge/embedded, code generation, multimodal
+- **Clean sample mixing:** 0-80% clean decoy samples for realistic poisoned dataset composition
+- **Deterministic PRNG:** Seeded generation for reproducible experiments
+- **Detection difficulty scoring:** Per-sample calibrated difficulty (0 = trivial, 1 = undetectable)
+- **Export formats:** JSONL, JSON, CSV with one-click download
+- **Domain targeting:** Optional domain context (finance, healthcare, legal, etc.)
+
+---
+
 ## Tech Stack
 
 | Layer | Technology | Purpose |
@@ -197,6 +226,7 @@ Unified cross-engine threat scoring:
 | `/tools` | MCP Auditor | Tool audit cards with findings, known threat pattern database |
 | `/provenance` | Provenance Tracker | Interactive DAG visualization, contamination panel, depth indicator, dataset registration form |
 | `/telemetry` | Telemetry | 8-scenario simulator panel, attack trace visualization, anomaly detection |
+| `/generator` | Poison Generator | Red team synthetic data generation — 8 attack categories, 4 subtlety levels, JSONL/JSON/CSV export |
 | `/login` | Authentication | Supabase Auth login form |
 
 ---
@@ -457,6 +487,7 @@ poisoning-detection-paas/
 │   │   │   ├── tools/           # MCP tool auditor
 │   │   │   ├── provenance/      # Lineage DAG + contamination
 │   │   │   ├── telemetry/       # Telemetry simulator
+│   │   │   ├── generator/       # Red team synthetic poison generator
 │   │   │   ├── login/           # Authentication
 │   │   │   └── auth/callback/   # OAuth callback
 │   │   ├── components/          # Shared UI (Sidebar, MetricCard, etc.)
