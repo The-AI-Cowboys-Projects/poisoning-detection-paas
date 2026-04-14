@@ -51,20 +51,55 @@ export function BatchUploadForm() {
       setState('uploading')
       setError(null)
 
-      // Simulate upload with progress
       try {
-        for (let p = 0; p <= 100; p += 20) {
-          await new Promise((r) => setTimeout(r, 150))
-          setFiles((prev) => prev.map((f) => ({ ...f, progress: p })))
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+        if (supabaseUrl && supabaseKey) {
+          for (let i = 0; i < files.length; i++) {
+            const qf = files[i]
+            setFiles((prev) =>
+              prev.map((f, j) => ({
+                ...f,
+                progress: j < i ? 100 : j === i ? 50 : 0,
+              })),
+            )
+            const content = await qf.file.text()
+            const res = await fetch(`${supabaseUrl}/functions/v1/scan-rag`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${supabaseKey}`,
+                apikey: supabaseKey,
+              },
+              body: JSON.stringify({
+                document_id: `upload-${Date.now()}-${i}`,
+                content: content.slice(0, 50000),
+                source: qf.file.name,
+              }),
+            })
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}))
+              throw new Error(err.error?.message || `Scan failed for ${qf.file.name}`)
+            }
+            setFiles((prev) =>
+              prev.map((f, j) => ({ ...f, progress: j <= i ? 100 : 0 })),
+            )
+          }
+        } else {
+          for (let p = 0; p <= 100; p += 20) {
+            await new Promise((r) => setTimeout(r, 150))
+            setFiles((prev) => prev.map((f) => ({ ...f, progress: p })))
+          }
         }
         setState('success')
         setTimeout(() => {
           setFiles([])
           setState('idle')
         }, 2500)
-      } catch {
+      } catch (err) {
         setState('error')
-        setError('Upload failed. Please try again.')
+        setError(err instanceof Error ? err.message : 'Upload failed. Please try again.')
       }
     },
     [files],

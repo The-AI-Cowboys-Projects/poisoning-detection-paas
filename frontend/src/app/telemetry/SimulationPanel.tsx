@@ -714,34 +714,102 @@ export function SimulationPanel({ scenarios }: SimulationPanelProps) {
     setErrorMsg(null)
 
     const payload = {
-      ...config,
+      scenario: config.scenario,
+      num_traces: config.num_traces,
+      num_agents: config.num_agents,
       poison_ratio: config.poison_ratio / 100,
-      noise_level:  config.noise_level  / 100,
       ...(config.seed !== '' ? { seed: config.seed } : {}),
     }
 
+    const startTime = Date.now()
+
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      if (apiUrl) {
-        const res = await fetch(`${apiUrl}/api/v1/telemetry/simulate`, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify(payload),
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+      if (supabaseUrl && supabaseKey) {
+        const res = await fetch(`${supabaseUrl}/functions/v1/simulate-telemetry`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${supabaseKey}`,
+            apikey: supabaseKey,
+          },
+          body: JSON.stringify(payload),
         })
         if (!res.ok) {
-          let message = `Simulation failed: ${res.status} ${res.statusText}`
-          try {
-            const body = await res.json()
-            if (body?.error?.message) message = body.error.message
-          } catch { /* ignore */ }
-          throw new Error(message)
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error?.message || `Simulation failed: ${res.status}`)
         }
-        const data: SimulationResult = await res.json()
-        setResult(data)
+        const data = await res.json()
+        const analysis = data.analysis ?? {}
+        const sampleTraces: any[] = data.sample_traces ?? []
+
+        const traces: TraceRecord[] = sampleTraces.map((t: any, i: number) => ({
+          trace_id: t.trace_id ?? `trc-${String(i).padStart(5, '0')}`,
+          agent_id: t.agent_id ?? 'agent-00',
+          timestamp: new Date(Date.now() - (sampleTraces.length - i) * 60000).toISOString(),
+          risk_score: t.overall_risk ?? 0,
+          is_anomalous: t.poisoned ?? false,
+          anomaly_types:
+            t.poisoned && config.scenario !== 'clean' ? [config.scenario as AnomalyType] : [],
+          root_cause_span_id:
+            t.poisoned && t.spans?.length ? t.spans[0]?.span_id : null,
+          duration_ms:
+            t.spans?.reduce((sum: number, s: any) => sum + (s.latency_ms ?? 0), 0) ?? 0,
+        }))
+
+        const breakdownMap: Partial<Record<AnomalyType, number>> = {}
+        for (const t of traces) {
+          for (const at of t.anomaly_types) {
+            breakdownMap[at] = (breakdownMap[at] ?? 0) + 1
+          }
+        }
+        const anomaly_breakdown = Object.entries(breakdownMap).map(
+          ([anomaly_type, count]) => ({
+            anomaly_type: anomaly_type as AnomalyType,
+            count: count as number,
+          }),
+        )
+
+        setResult({
+          total_traces: analysis.total_traces ?? sampleTraces.length,
+          anomalous_traces:
+            analysis.anomalous_spans ?? traces.filter((t) => t.is_anomalous).length,
+          overall_risk_score: analysis.risk_distribution?.mean ?? 0,
+          verdict: data.verdict ?? analysis.verdict ?? 'clean',
+          anomaly_breakdown,
+          traces,
+          distribution_shift:
+            (analysis.anomalous_rate ?? 0) > 0.1
+              ? (analysis.anomalous_rate ?? 0) * 1.5
+              : null,
+          simulation_duration_ms: Date.now() - startTime,
+        })
       } else {
-        // Fallback to mock when no API URL is configured
-        await new Promise((r) => setTimeout(r, 900))
-        setResult(buildMockResult(config))
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL
+        if (apiUrl) {
+          const res = await fetch(`${apiUrl}/api/v1/telemetry/simulate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          })
+          if (!res.ok) {
+            let message = `Simulation failed: ${res.status}`
+            try {
+              const body = await res.json()
+              if (body?.error?.message) message = body.error.message
+            } catch {
+              /* ignore */
+            }
+            throw new Error(message)
+          }
+          const data: SimulationResult = await res.json()
+          setResult(data)
+        } else {
+          await new Promise((r) => setTimeout(r, 900))
+          setResult(buildMockResult(config))
+        }
       }
       setRunState('success')
     } catch (err) {
