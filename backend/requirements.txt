@@ -1,0 +1,58 @@
+# ============================================================
+# LLM Poisoning Detection PaaS — Backend Dependencies
+# Python 3.11+
+# ============================================================
+
+# --- Web framework ---
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.19         # required for form data (file uploads)
+starlette==0.41.3                # pinned to match fastapi 0.115.x
+
+# --- ORM & database drivers ---
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0                  # PostgreSQL async driver (SQLAlchemy async backend)
+alembic==1.14.0                  # database migrations
+
+# --- Settings & validation ---
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# --- Authentication & cryptography ---
+python-jose[cryptography]==3.3.0  # JWT creation and verification
+passlib[bcrypt]==1.7.4            # bcrypt password hashing
+cryptography==44.0.0              # underlying crypto primitives
+
+# --- Caching & rate limiting ---
+redis==5.2.1                      # Redis async client (redis.asyncio namespace)
+
+# --- Event streaming ---
+aiokafka==0.11.0                  # Async Kafka producer/consumer
+
+# --- Graph database ---
+neo4j==5.28.0                     # Official Neo4j async Python driver
+
+# --- HTTP client (inter-service calls, webhook delivery) ---
+httpx==0.28.1
+
+# --- Numerical / ML ---
+numpy==2.2.1
+scipy==1.15.0
+scikit-learn==1.6.0
+
+# ============================================================
+# Development & testing (install with: pip install -r requirements.txt -r requirements-dev.txt)
+# ============================================================
+# Separated so production Docker images exclude test dependencies.
+# See requirements-dev.txt.
+
+# ============================================================
+# Requirements-dev.txt contents (inline for convenience)
+# ============================================================
+# pytest==8.3.4
+# pytest-asyncio==0.25.2
+# pytest-cov==6.0.0
+# httpx==0.28.1             # also used at runtime for TestClient
+# factory-boy==3.3.1        # ORM fixture factories
+# faker==33.3.1             # realistic test data
+# asgi-lifespan==2.1.0      # lifespan testing helper

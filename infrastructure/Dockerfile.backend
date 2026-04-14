@@ -1,0 +1,150 @@
+# =============================================================================
+# LLM Data Poisoning Detection PaaS — Backend Dockerfile
+# =============================================================================
+# Multi-stage build:
+#   Stage 1 (builder): Install system deps and compile Python wheels
+#   Stage 2 (runtime): Slim production image; non-root user; health check
+#
+# Build args:
+#   PYTHON_VERSION  — defaults to 3.12
+#
+# Usage:
+#   docker build -f infrastructure/Dockerfile.backend \
+#     --target runtime \
+#     -t paas-api:latest .
+# =============================================================================
+
+ARG PYTHON_VERSION=3.12
+
+# ---------------------------------------------------------------------------
+# Stage 1: builder — compile wheels so the runtime image stays lean
+# ---------------------------------------------------------------------------
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+# Prevent interactive prompts during apt operations
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build-time system dependencies
+# - build-essential: gcc/g++ for C-extension wheels (numpy, cryptography)
+# - libpq-dev: asyncpg / psycopg2 header files
+# - git: some pip packages pull from VCS refs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip in an isolated step to maximise layer caching
+RUN pip install --upgrade pip==24.0 wheel setuptools
+
+WORKDIR /build
+
+# Copy dependency manifests first — cache this layer until requirements change
+COPY backend/requirements.txt ./requirements.txt
+
+# Build wheels into a local cache directory so we can copy them to the runtime
+# stage without needing build tools there.
+RUN pip wheel \
+    --no-cache-dir \
+    --no-deps \
+    --wheel-dir /build/wheels \
+    -r requirements.txt
+
+# ---------------------------------------------------------------------------
+# Stage 2: runtime — minimal image with only what the application needs
+# ---------------------------------------------------------------------------
+FROM python:${PYTHON_VERSION}-slim AS runtime
+
+# Metadata labels (OCI image spec)
+LABEL org.opencontainers.image.title="LLM Poisoning Detection API"
+LABEL org.opencontainers.image.description="FastAPI backend for LLM data poisoning detection PaaS"
+LABEL org.opencontainers.image.source="https://github.com/ai-cowboys/poisoning-detection-paas"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Runtime system dependencies
+# - libpq5: asyncpg runtime DSO
+# - tini: minimal init to reap zombies and forward signals correctly
+# - curl: used by the Docker health check
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    tini \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get purge -y --auto-remove
+
+# Create a non-root user and group — never run services as root
+RUN groupadd --gid 1001 appgroup \
+    && useradd --uid 1001 --gid appgroup \
+       --shell /bin/bash \
+       --create-home \
+       --no-log-init \
+       appuser
+
+# Application directory owned by appuser
+WORKDIR /app
+RUN chown appuser:appgroup /app
+
+# Install pre-built wheels from builder stage
+# --no-index: only use our wheels, do not call PyPI
+COPY --from=builder /build/wheels /wheels
+RUN pip install \
+    --no-cache-dir \
+    --no-index \
+    --find-links=/wheels \
+    /wheels/*.whl \
+    && rm -rf /wheels
+
+# Copy application source (context is the project root)
+COPY --chown=appuser:appgroup backend/ ./backend/
+
+# Python runtime hardening
+# - PYTHONDONTWRITEBYTECODE: no .pyc files in the image layer
+# - PYTHONUNBUFFERED: stdout/stderr go straight to the container log driver
+# - PYTHONFAULTHANDLER: crash tracebacks written even on segfault
+# - PYTHONHASHSEED: deterministic hashing for reproducibility
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    PYTHONHASHSEED=random \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Application defaults (overridden by docker-compose / Kubernetes env)
+ENV ENVIRONMENT=production \
+    LOG_LEVEL=INFO \
+    PORT=8000 \
+    HOST=0.0.0.0 \
+    WORKERS=2 \
+    MAX_REQUESTS=1000 \
+    MAX_REQUESTS_JITTER=100
+
+# Drop to non-root user for all subsequent instructions
+USER appuser
+
+EXPOSE 8000
+
+# Health check — poll /health; 3 failures = unhealthy
+HEALTHCHECK \
+    --interval=15s \
+    --timeout=10s \
+    --start-period=30s \
+    --retries=3 \
+    CMD curl -fsSL http://localhost:${PORT}/health || exit 1
+
+# Use tini as PID 1 to properly forward SIGTERM to Uvicorn workers
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Uvicorn in multi-worker mode.
+# --proxy-headers: trust X-Forwarded-* from the upstream load balancer.
+# --forwarded-allow-ips: restrict header trust to the Docker bridge CIDR.
+CMD ["sh", "-c", \
+     "uvicorn backend.main:app \
+      --host ${HOST} \
+      --port ${PORT} \
+      --workers ${WORKERS} \
+      --proxy-headers \
+      --forwarded-allow-ips='*' \
+      --no-access-log \
+      --log-level ${LOG_LEVEL,,}"]
