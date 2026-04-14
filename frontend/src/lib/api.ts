@@ -1682,3 +1682,183 @@ export async function fetchDetectionBounds(): Promise<DetectionBound[]> {
   }
   return apiFetch('/api/v1/proofs/bounds')
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EMPIRICAL VALIDATION — benchmark suite for academic publication
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export interface BenchmarkDataset {
+  id: string
+  name: string
+  description: string
+  sampleCount: number
+  poisonedCount: number
+  cleanCount: number
+  attackTypes: string[]
+  source: string  // e.g., "PoisonedRAG (USENIX 2025)", "MCPTox", "VIA (NeurIPS 2025)"
+}
+
+export interface BenchmarkResult {
+  datasetId: string
+  engine: string
+  technique: string
+  truePositives: number
+  falsePositives: number
+  trueNegatives: number
+  falseNegatives: number
+  precision: number
+  recall: number
+  f1Score: number
+  accuracy: number
+  detectionRate: number     // same as recall/TPR
+  falsePositiveRate: number // FPR
+  auc: number               // area under ROC curve
+  avgLatencyMs: number
+  p95LatencyMs: number
+  timestamp: string
+}
+
+export interface BenchmarkSuite {
+  id: string
+  name: string
+  status: 'pending' | 'running' | 'complete' | 'failed'
+  datasets: BenchmarkDataset[]
+  results: BenchmarkResult[]
+  startedAt: string
+  completedAt: string | null
+  overallMetrics: {
+    meanDetectionRate: number
+    meanFalsePositiveRate: number
+    meanF1: number
+    meanAUC: number
+    engineRankings: Array<{ engine: string; avgF1: number; avgAUC: number }>
+    techniqueGaps: Array<{ technique: string; bestF1: number; worstEngine: string }>
+  }
+}
+
+export async function fetchBenchmarkDatasets(): Promise<BenchmarkDataset[]> {
+  if (IS_SUPABASE) {
+    return callRpc<BenchmarkDataset[]>('get_benchmark_datasets', { p_tenant_id: DEMO_TENANT })
+  }
+  if (IS_MOCK) {
+    return mockDelay<BenchmarkDataset[]>([
+      { id: 'ds-1', name: 'PoisonedRAG-Bench', description: 'RAG document poisoning from USENIX Security 2025 test suite', sampleCount: 2000, poisonedCount: 400, cleanCount: 1600, attackTypes: ['rag_poisoning', 'hidden_instruction', 'cosine_maximized'], source: 'PoisonedRAG (USENIX 2025)' },
+      { id: 'ds-2', name: 'MCPTox-45', description: '353 real MCP tools from 45 servers with injected backdoors', sampleCount: 353, poisonedCount: 89, cleanCount: 264, attackTypes: ['schema_manipulation', 'tool_backdoor', 'invisible_instruction'], source: 'MCPTox (arXiv 2508.14925)' },
+      { id: 'ds-3', name: 'VIA-Synthetic', description: 'Virus Infection Attack propagation through 5 synthetic data generations', sampleCount: 5000, poisonedCount: 750, cleanCount: 4250, attackTypes: ['via_propagation', 'cumulative_drift', 'shell_pattern'], source: 'VIA (NeurIPS 2025 Spotlight)' },
+      { id: 'ds-4', name: 'SleepAgent-Eval', description: 'Sleeper agent backdoor samples with semantic triggers from Anthropic research', sampleCount: 1200, poisonedCount: 120, cleanCount: 1080, attackTypes: ['semantic_sleeper', 'token_backdoor', 'activation_trigger'], source: 'Anthropic Sleeper Agents (2024)' },
+      { id: 'ds-5', name: 'EmbedPoison-3K', description: 'Perturbed embeddings with cluster drift and split-view attacks', sampleCount: 3000, poisonedCount: 600, cleanCount: 2400, attackTypes: ['embedding_perturbation', 'cluster_drift', 'split_view'], source: 'AgentPoison (NeurIPS 2024)' },
+      { id: 'ds-6', name: 'PromptInject-HASTE', description: 'HASTE benchmark prompt injection dataset for hardening comparison', sampleCount: 1500, poisonedCount: 500, cleanCount: 1000, attackTypes: ['prompt_injection', 'jailbreak', 'delimiter_attack'], source: 'HASTE (NDSS 2026)' },
+      { id: 'ds-7', name: 'Unicode-Smuggle-500', description: 'Unicode tag smuggling and zero-width injection samples', sampleCount: 500, poisonedCount: 250, cleanCount: 250, attackTypes: ['zero_width_injection', 'unicode_tag', 'homoglyph'], source: 'Platform Original' },
+      { id: 'ds-8', name: 'MM-MEPA-Eval', description: 'Multimodal metadata-only poisoning attacks on image-text RAG entries', sampleCount: 800, poisonedCount: 200, cleanCount: 600, attackTypes: ['mm_mepa', 'metadata_steering', 'image_text_consistency_bypass'], source: 'Platform Original (Novel)' },
+    ])
+  }
+  return apiFetch('/api/v1/benchmarks/datasets')
+}
+
+export async function runBenchmarkSuite(datasetIds: string[]): Promise<BenchmarkSuite> {
+  if (IS_SUPABASE) {
+    return callEdgeFunction<BenchmarkSuite>('benchmarks', { action: 'run', dataset_ids: datasetIds })
+  }
+  if (IS_MOCK) {
+    const engines = ['RAG Detector', 'Vector Analyzer', 'MCP Auditor', 'Provenance Tracker', 'Telemetry Analyzer']
+    const techniques = ['Prompt Injection', 'RAG Poisoning', 'Schema Manipulation', 'VIA Propagation', 'Embedding Perturbation', 'Sleeper Agent', 'Unicode Smuggling', 'MM-MEPA']
+
+    const results: BenchmarkResult[] = []
+    for (const dsId of datasetIds) {
+      for (const engine of engines) {
+        for (const technique of techniques) {
+          // Generate realistic detection metrics — engines have different strengths
+          const isStrong = (
+            (engine === 'RAG Detector' && ['Prompt Injection', 'RAG Poisoning', 'Unicode Smuggling'].includes(technique)) ||
+            (engine === 'Vector Analyzer' && ['Embedding Perturbation', 'VIA Propagation'].includes(technique)) ||
+            (engine === 'MCP Auditor' && ['Schema Manipulation'].includes(technique)) ||
+            (engine === 'Telemetry Analyzer' && ['Sleeper Agent', 'VIA Propagation'].includes(technique)) ||
+            (engine === 'Provenance Tracker' && ['VIA Propagation'].includes(technique))
+          )
+          const baseTP = isStrong ? 0.85 + Math.random() * 0.12 : 0.45 + Math.random() * 0.35
+          const baseFP = isStrong ? 0.02 + Math.random() * 0.04 : 0.05 + Math.random() * 0.12
+          const total = 100 + Math.floor(Math.random() * 200)
+          const poisoned = Math.floor(total * 0.2)
+          const clean = total - poisoned
+          const tp = Math.round(poisoned * baseTP)
+          const fn = poisoned - tp
+          const fp = Math.round(clean * baseFP)
+          const tn = clean - fp
+
+          const precision = tp / (tp + fp) || 0
+          const recall = tp / (tp + fn) || 0
+          const f1 = precision + recall > 0 ? 2 * precision * recall / (precision + recall) : 0
+          const accuracy = (tp + tn) / total
+          const fpr = fp / (fp + tn) || 0
+
+          results.push({
+            datasetId: dsId,
+            engine,
+            technique,
+            truePositives: tp,
+            falsePositives: fp,
+            trueNegatives: tn,
+            falseNegatives: fn,
+            precision: parseFloat(precision.toFixed(4)),
+            recall: parseFloat(recall.toFixed(4)),
+            f1Score: parseFloat(f1.toFixed(4)),
+            accuracy: parseFloat(accuracy.toFixed(4)),
+            detectionRate: parseFloat(recall.toFixed(4)),
+            falsePositiveRate: parseFloat(fpr.toFixed(4)),
+            auc: parseFloat((recall * 0.85 + (1 - fpr) * 0.15).toFixed(4)),
+            avgLatencyMs: Math.round(50 + Math.random() * 200),
+            p95LatencyMs: Math.round(150 + Math.random() * 400),
+            timestamp: new Date().toISOString(),
+          })
+        }
+      }
+    }
+
+    // Compute overall metrics
+    const engineGroups = new Map<string, BenchmarkResult[]>()
+    const techniqueGroups = new Map<string, BenchmarkResult[]>()
+    for (const r of results) {
+      if (!engineGroups.has(r.engine)) engineGroups.set(r.engine, [])
+      engineGroups.get(r.engine)!.push(r)
+      if (!techniqueGroups.has(r.technique)) techniqueGroups.set(r.technique, [])
+      techniqueGroups.get(r.technique)!.push(r)
+    }
+
+    const engineRankings = Array.from(engineGroups.entries()).map(([engine, rs]) => ({
+      engine,
+      avgF1: parseFloat((rs.reduce((s, r) => s + r.f1Score, 0) / rs.length).toFixed(4)),
+      avgAUC: parseFloat((rs.reduce((s, r) => s + r.auc, 0) / rs.length).toFixed(4)),
+    })).sort((a, b) => b.avgF1 - a.avgF1)
+
+    const techniqueGaps = Array.from(techniqueGroups.entries()).map(([technique, rs]) => {
+      const f1s = rs.map(r => ({ engine: r.engine, f1: r.f1Score }))
+      const best = f1s.reduce((a, b) => a.f1 > b.f1 ? a : b)
+      const worst = f1s.reduce((a, b) => a.f1 < b.f1 ? a : b)
+      return { technique, bestF1: best.f1, worstEngine: worst.engine }
+    }).filter(g => g.bestF1 < 0.85).sort((a, b) => a.bestF1 - b.bestF1)
+
+    const meanDR = results.reduce((s, r) => s + r.detectionRate, 0) / results.length
+    const meanFPR = results.reduce((s, r) => s + r.falsePositiveRate, 0) / results.length
+    const meanF1 = results.reduce((s, r) => s + r.f1Score, 0) / results.length
+    const meanAUC = results.reduce((s, r) => s + r.auc, 0) / results.length
+
+    return mockDelay<BenchmarkSuite>({
+      id: `bench-${Date.now()}`,
+      name: 'Full Validation Suite',
+      status: 'complete',
+      datasets: [],
+      results,
+      startedAt: new Date(Date.now() - 30000).toISOString(),
+      completedAt: new Date().toISOString(),
+      overallMetrics: {
+        meanDetectionRate: parseFloat(meanDR.toFixed(4)),
+        meanFalsePositiveRate: parseFloat(meanFPR.toFixed(4)),
+        meanF1: parseFloat(meanF1.toFixed(4)),
+        meanAUC: parseFloat(meanAUC.toFixed(4)),
+        engineRankings,
+        techniqueGaps,
+      },
+    }, 2000)
+  }
+  return apiFetch('/api/v1/benchmarks/run', { method: 'POST', body: JSON.stringify({ dataset_ids: datasetIds }) })
+}

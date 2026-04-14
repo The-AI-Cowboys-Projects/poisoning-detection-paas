@@ -17,6 +17,7 @@ import {
   Fingerprint,
   Network,
   FileCode2,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react'
 import { PoisonGenerator } from './PoisonGenerator'
@@ -218,6 +219,82 @@ export default function GeneratorPage() {
           MM-MEPA multimodal metadata, VIA propagation, DDIPE wrappers, context window overflow,
           instruction hierarchy exploits, semantic sleeper agents, and gradient-aligned drift.
         </p>
+        {/* Novel Contributions */}
+        <div className="mb-6 border border-emerald-800/40 rounded-xl bg-emerald-950/20 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-lg bg-emerald-900/50 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="text-emerald-400" style={{ width: '14px', height: '14px' }} aria-hidden="true" />
+            </div>
+            <p className="text-sm font-semibold text-slate-200">Novel Technique Contributions</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+
+            {/* MM-MEPA */}
+            <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3 flex flex-col gap-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-100">MM-MEPA</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-900/70 text-emerald-300 border border-emerald-700/50 uppercase tracking-wide">Novel</span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Multimodal Metadata-Only Poisoning Attack. First framework for poisoning multimodal RAG systems exclusively through metadata manipulation while leaving visual content unaltered. No prior indexed literature.
+              </p>
+              <p className="text-[9px] text-emerald-500/80 font-medium mt-0.5">First published in this platform</p>
+            </div>
+
+            {/* TrojanStego */}
+            <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3 flex flex-col gap-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-100">TrojanStego</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-900/70 text-emerald-300 border border-emerald-700/50 uppercase tracking-wide">Novel</span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Low-Recoverability Linguistic Steganography. Novel combination of pivot translation with embedding-space vocabulary partitioning for LLM-specific steganographic payload delivery. Extends classical steganalysis evasion to mechanistic interpretability probes.
+              </p>
+              <p className="text-[9px] text-emerald-500/80 font-medium mt-0.5">First published in this platform</p>
+            </div>
+
+            {/* Smuggling Combination */}
+            <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3 flex flex-col gap-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-100">Smuggling Combination</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-900/70 text-emerald-300 border border-emerald-700/50 uppercase tracking-wide">Novel</span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Social-Engineered Unicode Stealth. Named compound attack class pairing invisible Unicode Tags with psychologically urgent social engineering to bypass both automated filters and human reviewers simultaneously.
+              </p>
+              <p className="text-[9px] text-emerald-500/80 font-medium mt-0.5">First published in this platform</p>
+            </div>
+
+            {/* DDIPE */}
+            <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3 flex flex-col gap-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-100">DDIPE</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-900/70 text-emerald-300 border border-emerald-700/50 uppercase tracking-wide">Novel</span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                Document-Driven Implicit Payload Execution. Original wrapper technique that embeds executable logic within document structure metadata, exploiting RAG chunking boundaries for payload reconstruction.
+              </p>
+              <p className="text-[9px] text-emerald-500/80 font-medium mt-0.5">First published in this platform</p>
+            </div>
+
+            {/* VIA Detection */}
+            <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3 flex flex-col gap-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-100">VIA Detection</span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-900/70 text-emerald-300 border border-emerald-700/50 uppercase tracking-wide">Novel</span>
+              </div>
+              <p className="text-[10px] text-slate-400 leading-relaxed">
+                First defensive system targeting the Virus Infection Attack (NeurIPS 2025 Spotlight, arXiv:2509.23041). The VIA paper proposed no detection method; this platform implements the first known countermeasure.
+              </p>
+              <p className="text-[9px] text-emerald-500/80 font-medium mt-0.5">First published in this platform</p>
+            </div>
+
+          </div>
+          <p className="mt-3 text-[9px] text-slate-500 border-t border-slate-700/50 pt-2.5">
+            These techniques have no equivalent in indexed academic literature as of April 2026. See novelty assessment for full prior art analysis.
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {CATEGORIES.map(cat => (
             <CategoryCard key={cat.id} category={cat} />

@@ -35,6 +35,7 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
+  BookOpen,
 } from 'lucide-react'
 import { startEvolutionSession, runEvolutionRound } from '@/lib/api'
 import type { EvolutionRound, EvolutionSession } from '@/lib/types'
@@ -624,6 +625,120 @@ function SummaryKpis({ rounds, convergenceThreshold, consecutiveConvergedRounds 
   )
 }
 
+// ─── HASTE Prior Art Differentiation ─────────────────────────────────────────
+
+const HASTE_ROWS: { dimension: string; haste: string; aispm: string }[] = [
+  {
+    dimension: 'Attack Surface',
+    haste: 'Prompt injection only',
+    aispm:
+      '8 attack types across 4 surfaces (training, RAG, MCP, inference)',
+  },
+  {
+    dimension: 'Generator',
+    haste: 'Static adversarial prompts',
+    aispm:
+      'Polymorphic payloads — 19 evasion techniques with runtime mutation',
+  },
+  {
+    dimension: 'Scope',
+    haste: 'Research prototype',
+    aispm: 'PaaS-level API with multi-tenant isolation',
+  },
+  {
+    dimension: 'Detection Targets',
+    haste: 'Single classifier hardening',
+    aispm:
+      '5 detection engines (vector, RAG, MCP, provenance, telemetry)',
+  },
+  {
+    dimension: 'Evolution Mechanism',
+    haste: 'Re-inject misclassified prompts into training',
+    aispm:
+      'Cross-surface hardening: missed samples drive threshold, regex, and heuristic mutations across all engines',
+  },
+  {
+    dimension: 'Convergence',
+    haste: 'Not formally defined',
+    aispm:
+      'δ < threshold for 3 consecutive rounds with cryptographic proof chain',
+  },
+  {
+    dimension: 'Output',
+    haste: 'Hardened prompt classifier',
+    aispm:
+      'Continuously hardened multi-engine detection platform with audit trail',
+  },
+]
+
+function HASTEDifferentiation() {
+  return (
+    <div
+      className="rounded-xl border border-blue-800/40 bg-blue-950/20 p-5"
+      aria-label="Prior art differentiation: HASTE vs AI-SPM Evolution Engine"
+    >
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-4">
+        <BookOpen className="w-4 h-4 text-blue-400 flex-shrink-0" aria-hidden="true" />
+        <h2 className="text-sm font-semibold text-slate-200">
+          Prior Art Differentiation: HASTE (NDSS 2026)
+        </h2>
+        <span className="ml-auto text-[10px] font-mono text-blue-500 tabular-nums">
+          arXiv 2601.19051
+        </span>
+      </div>
+
+      {/* Comparison table */}
+      <div className="overflow-x-auto -mx-1">
+        <table className="w-full text-xs border-collapse" aria-label="HASTE vs AI-SPM comparison table">
+          <thead>
+            <tr>
+              <th
+                scope="col"
+                className="text-left py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500 w-[18%]"
+              >
+                Dimension
+              </th>
+              <th
+                scope="col"
+                className="text-left py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-blue-500/80 w-[36%]"
+              >
+                HASTE (arXiv 2601.19051)
+              </th>
+              <th
+                scope="col"
+                className="text-left py-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-purple-400 w-[46%]"
+              >
+                AI-SPM Evolution Engine
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {HASTE_ROWS.map((row, idx) => (
+              <tr
+                key={row.dimension}
+                className={idx % 2 === 0 ? 'bg-slate-800/20' : ''}
+              >
+                <td className="py-2.5 px-3 text-slate-400 font-medium align-top leading-snug">
+                  {row.dimension}
+                </td>
+                <td className="py-2.5 px-3 text-slate-400 align-top leading-snug">
+                  {row.haste}
+                </td>
+                <td className="py-2.5 px-3 align-top leading-snug">
+                  <span className="font-semibold text-purple-300">
+                    {row.aispm}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ─── Default config ────────────────────────────────────────────────────────────
 
 const DEFAULT_CONFIG: EvolutionConfig = {
@@ -950,6 +1065,9 @@ export function EvolutionPanel() {
           errorMsg={errorMsg}
         />
       )}
+
+      {/* ── Prior art differentiation (always visible) ── */}
+      <HASTEDifferentiation />
 
       {/* ── Live results (shown as soon as any round data arrives) ── */}
       {hasRounds && (

@@ -30,6 +30,7 @@ import {
   Network,
   ShieldCheck,
   Fingerprint,
+  BarChart3,
 } from 'lucide-react'
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
@@ -55,6 +56,7 @@ const PRIMARY_NAV: NavItem[] = [
   { label: 'Correlation', href: '/correlation', icon: Network },
   { label: 'Remediation', href: '/remediation', icon: ShieldCheck },
   { label: 'Crypto Proofs', href: '/proofs', icon: Fingerprint },
+  { label: 'Benchmarks', href: '/benchmarks', icon: BarChart3 },
 ]
 
 const SECONDARY_NAV: NavItem[] = [
