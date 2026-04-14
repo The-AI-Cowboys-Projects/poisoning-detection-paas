@@ -17,6 +17,7 @@ import {
   Wrench,
   GitBranch,
   Activity,
+  Skull,
   Shield,
   ChevronLeft,
   ChevronRight,
@@ -41,6 +42,7 @@ const PRIMARY_NAV: NavItem[] = [
   { label: 'MCP Tools',     href: '/tools',      icon: Wrench },
   { label: 'Provenance',    href: '/provenance', icon: GitBranch },
   { label: 'Telemetry',     href: '/telemetry',  icon: Activity },
+  { label: 'Poison Generator', href: '/generator', icon: Skull },
 ]
 
 const SECONDARY_NAV: NavItem[] = [
