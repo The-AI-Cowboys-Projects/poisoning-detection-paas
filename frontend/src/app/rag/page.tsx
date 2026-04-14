@@ -3,6 +3,8 @@
  * hidden instruction findings, and batch upload form.
  */
 
+export const dynamic = 'force-dynamic'
+
 import type { Metadata } from 'next'
 import { fetchRAGResults, fetchCosineHistogram, fetchHiddenInstructions } from '@/lib/api'
 import { ThreatBadge } from '@/components/ThreatBadge'

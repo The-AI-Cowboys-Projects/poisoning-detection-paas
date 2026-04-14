@@ -3,6 +3,8 @@
  * dataset registration form, generation depth indicator.
  */
 
+export const dynamic = 'force-dynamic'
+
 import type { Metadata } from 'next'
 import { fetchProvenance, fetchContaminationStatus } from '@/lib/api'
 import { ProvenanceDAG } from './ProvenanceDAG'

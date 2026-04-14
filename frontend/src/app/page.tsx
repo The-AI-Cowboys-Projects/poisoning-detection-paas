@@ -6,6 +6,8 @@
  * Charts are client components rendered in <ChartWrapper>.
  */
 
+export const dynamic = 'force-dynamic'
+
 import type { Metadata } from 'next'
 import { ScanSearch, ShieldAlert, Radio, Zap } from 'lucide-react'
 import { MetricCard } from '@/components/MetricCard'

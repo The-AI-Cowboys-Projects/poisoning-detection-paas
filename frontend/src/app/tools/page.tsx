@@ -2,6 +2,8 @@
  * MCP Tool Audit page — risk cards, known threat patterns, schema analysis panels.
  */
 
+export const dynamic = 'force-dynamic'
+
 import type { Metadata } from 'next'
 import { fetchToolAudits, fetchKnownThreatPatterns } from '@/lib/api'
 import { ThreatBadge } from '@/components/ThreatBadge'
